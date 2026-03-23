@@ -38,21 +38,38 @@ export default function ContainerRowActions({
     container.sticker_id || "",
   );
 
-  // --- EDIT SUBMIT HANDLER ---
-  const handleEditSubmit = async (formData: FormData) => {
+  // --- HANDLERS (Changed to onSubmit to force immediate UI updates) ---
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    formData.append("id", container.id);
+    formData.append("type", containerType);
+
     try {
-      formData.append("id", container.id);
-      formData.append("type", containerType);
-
       await editContainerAction(formData);
-
       setIsEditOpen(false);
       router.refresh();
     } catch (error: any) {
       alert(error.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteSubmit = async () => {
+    setIsDeleting(true);
+    try {
+      const fd = new FormData();
+      fd.append("id", container.id);
+      await deleteContainerAction(fd);
+      setIsDeleteOpen(false);
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -69,10 +86,10 @@ export default function ContainerRowActions({
     "input-field !bg-white/50 !border-white/60 focus:!bg-white/90 focus:!border-[var(--lub-gold)] shadow-sm w-full";
   const labelClass = "block text-sm font-bold text-gray-700 mb-1.5";
 
-  // Reusable Spinner SVG
+  // Reusable Spinner SVG (Forced text-white)
   const LoadingSpinner = () => (
     <svg
-      className="w-4 h-4 animate-spin text-current"
+      className="w-5 h-5 animate-spin text-white"
       fill="none"
       viewBox="0 0 24 24"
     >
@@ -175,20 +192,7 @@ export default function ContainerRowActions({
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  setIsDeleting(true);
-                  try {
-                    const fd = new FormData();
-                    fd.append("id", container.id);
-                    await deleteContainerAction(fd);
-                    setIsDeleteOpen(false);
-                    router.refresh();
-                  } catch (error: any) {
-                    alert(error.message);
-                  } finally {
-                    setIsDeleting(false);
-                  }
-                }}
+                onClick={handleDeleteSubmit}
                 disabled={isDeleting}
                 className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
@@ -223,8 +227,9 @@ export default function ContainerRowActions({
               </button>
             </div>
 
+            {/* CHANGED FROM action= TO onSubmit= */}
             <form
-              action={handleEditSubmit}
+              onSubmit={handleEditSubmit}
               className="flex flex-col flex-1 min-h-0"
             >
               <div className="flex-1 overflow-y-auto p-6 space-y-5 text-left">

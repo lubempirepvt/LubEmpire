@@ -21,9 +21,12 @@ export default function CapRowActions({ cap }: { cap: any }) {
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // --- HANDLERS WITH LOADERS ---
-  const handleEditSubmit = async (fd: FormData) => {
+  // --- HANDLERS (Changed to onSubmit to force immediate UI updates) ---
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setIsEditing(true);
+
+    const fd = new FormData(e.currentTarget);
     try {
       await editCapAction(fd);
       setIsEditOpen(false);
@@ -35,8 +38,13 @@ export default function CapRowActions({ cap }: { cap: any }) {
     }
   };
 
-  const handleAdjustSubmit = async (fd: FormData) => {
+  const handleAdjustSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setIsAdjusting(true);
+
+    const fd = new FormData(e.currentTarget);
+    fd.append("adjustment_type", adjustmentType);
+
     try {
       await adjustCapAction(fd);
       setIsStockOpen(false);
@@ -73,7 +81,7 @@ export default function CapRowActions({ cap }: { cap: any }) {
 
   const LoadingSpinner = () => (
     <svg
-      className="w-4 h-4 animate-spin text-current"
+      className="w-5 h-5 animate-spin text-white"
       fill="none"
       viewBox="0 0 24 24"
     >
@@ -179,7 +187,8 @@ export default function CapRowActions({ cap }: { cap: any }) {
                 &times;
               </button>
             </div>
-            <form action={handleEditSubmit} className="p-6 space-y-4">
+            {/* CHANGED FROM action= TO onSubmit= */}
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
               <input type="hidden" name="id" value={cap.id} />
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1.5">
@@ -237,13 +246,9 @@ export default function CapRowActions({ cap }: { cap: any }) {
               </button>
             </div>
             <div className="p-6">
-              <form action={handleAdjustSubmit} className="space-y-4">
+              {/* CHANGED FROM action= TO onSubmit= */}
+              <form onSubmit={handleAdjustSubmit} className="space-y-4">
                 <input type="hidden" name="material_id" value={cap.id} />
-                <input
-                  type="hidden"
-                  name="adjustment_type"
-                  value={adjustmentType}
-                />
 
                 <div className="flex gap-3 p-1 bg-white/40 border border-white/50 rounded-xl shadow-inner backdrop-blur-md">
                   <button

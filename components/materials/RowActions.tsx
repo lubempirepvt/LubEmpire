@@ -22,9 +22,14 @@ export default function RowActions({ material }: { material: any }) {
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // --- HANDLERS WITH LOADERS ---
-  async function handleAdjustSubmit(formData: FormData) {
+  // --- HANDLERS (Changed to onSubmit to force immediate UI updates) ---
+  async function handleAdjustSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); // <-- Stops React from swallowing the state update
     setIsAdjusting(true);
+
+    const formData = new FormData(e.currentTarget);
+    formData.append("adjustment_type", adjustmentType); // Append manual state
+
     try {
       await adjustRawMaterialAction(formData);
       setIsStockOpen(false);
@@ -36,8 +41,12 @@ export default function RowActions({ material }: { material: any }) {
     }
   }
 
-  async function handleEditSubmit(formData: FormData) {
+  async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); // <-- Stops React from swallowing the state update
     setIsEditing(true);
+
+    const formData = new FormData(e.currentTarget);
+
     try {
       await editRawMaterialAction(formData);
       setIsEditOpen(false);
@@ -64,7 +73,7 @@ export default function RowActions({ material }: { material: any }) {
     }
   };
 
-  // --- STYLES & COMPONENTS ---
+  // --- STYLES & INLINE SPINNER ---
   const glassBackdrop =
     "fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[60] p-4 text-left";
   const glassModal =
@@ -74,9 +83,10 @@ export default function RowActions({ material }: { material: any }) {
   const glassInput =
     "input-field !bg-white/50 !border-white/60 focus:!bg-white/90 focus:!border-[var(--lub-gold)] shadow-sm w-full";
 
-  const LoadingSpinner = () => (
+  // Forced text-white so it guarantees visibility
+  const Spinner = () => (
     <svg
-      className="w-4 h-4 animate-spin text-current"
+      className="w-5 h-5 animate-spin text-white"
       fill="none"
       viewBox="0 0 24 24"
     >
@@ -182,7 +192,8 @@ export default function RowActions({ material }: { material: any }) {
                 &times;
               </button>
             </div>
-            <form action={handleEditSubmit} className="p-6 space-y-5">
+            {/* CHANGED FROM action= TO onSubmit= */}
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
               <input type="hidden" name="id" value={material.id} />
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1.5 drop-shadow-sm">
@@ -222,11 +233,11 @@ export default function RowActions({ material }: { material: any }) {
                 <button
                   type="submit"
                   disabled={isEditing}
-                  className="btn-primary flex-1 !rounded-xl shadow-lg shadow-[var(--lub-gold)]/20 flex justify-center items-center gap-2 disabled:opacity-70"
+                  className="btn-primary flex-1 !rounded-xl shadow-lg shadow-[var(--lub-gold)]/20 flex items-center justify-center gap-2 disabled:opacity-70"
                 >
                   {isEditing ? (
                     <>
-                      <LoadingSpinner /> Saving...
+                      <Spinner /> Saving...
                     </>
                   ) : (
                     "Save Changes"
@@ -263,26 +274,30 @@ export default function RowActions({ material }: { material: any }) {
               </button>
             </div>
             <div className="p-6">
-              <form action={handleAdjustSubmit} className="space-y-4">
+              {/* CHANGED FROM action= TO onSubmit= */}
+              <form onSubmit={handleAdjustSubmit} className="space-y-4">
                 <input type="hidden" name="material_id" value={material.id} />
-                <input
-                  type="hidden"
-                  name="adjustment_type"
-                  value={adjustmentType}
-                />
 
                 <div className="flex gap-3 mb-4 p-1 bg-white/40 border border-white/50 rounded-xl shadow-inner backdrop-blur-md">
                   <button
                     type="button"
                     onClick={() => setAdjustmentType("Add Quantity")}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${adjustmentType === "Add Quantity" ? "bg-green-500 text-white shadow-md shadow-green-500/20" : "text-gray-600 hover:bg-white/50"}`}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+                      adjustmentType === "Add Quantity"
+                        ? "bg-green-500 text-white shadow-md shadow-green-500/20"
+                        : "text-gray-600 hover:bg-white/50"
+                    }`}
                   >
                     + Add
                   </button>
                   <button
                     type="button"
                     onClick={() => setAdjustmentType("Remove Quantity")}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${adjustmentType === "Remove Quantity" ? "bg-red-500 text-white shadow-md shadow-red-500/20" : "text-gray-600 hover:bg-white/50"}`}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+                      adjustmentType === "Remove Quantity"
+                        ? "bg-red-500 text-white shadow-md shadow-red-500/20"
+                        : "text-gray-600 hover:bg-white/50"
+                    }`}
                   >
                     - Remove
                   </button>
@@ -336,11 +351,15 @@ export default function RowActions({ material }: { material: any }) {
                   <button
                     type="submit"
                     disabled={isAdjusting}
-                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-70 ${adjustmentType === "Remove Quantity" ? "bg-red-500 shadow-red-500/20" : "bg-green-500 shadow-green-500/20"}`}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${
+                      adjustmentType === "Remove Quantity"
+                        ? "bg-red-500 hover:bg-red-600 shadow-red-500/20"
+                        : "bg-green-500 hover:bg-green-600 shadow-green-500/20"
+                    }`}
                   >
                     {isAdjusting ? (
                       <>
-                        <LoadingSpinner /> Saving...
+                        <Spinner /> Saving...
                       </>
                     ) : (
                       "Save Adjustment"
@@ -386,11 +405,11 @@ export default function RowActions({ material }: { material: any }) {
               <button
                 onClick={handleDeleteSubmit}
                 disabled={isDeleting}
-                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
+                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
                 {isDeleting ? (
                   <>
-                    <LoadingSpinner /> Deleting...
+                    <Spinner /> Deleting...
                   </>
                 ) : (
                   "Delete"

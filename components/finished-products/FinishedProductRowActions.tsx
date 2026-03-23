@@ -15,6 +15,43 @@ export default function FinishedProductRowActions({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
+  // --- LOADING STATES ---
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // --- HANDLERS (Changed to onSubmit) ---
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsEditing(true);
+
+    const fd = new FormData(e.currentTarget);
+    try {
+      await editFinishedProductAction(fd);
+      setIsEditOpen(false);
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message || "Something went wrong");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleDeleteSubmit = async () => {
+    setIsDeleting(true);
+    try {
+      const fd = new FormData();
+      fd.append("id", product.id);
+      await deleteFinishedProductAction(fd);
+      setIsDeleteOpen(false);
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message || "Something went wrong");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // --- STYLES ---
   const glassBackdrop =
     "fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[60] p-4 text-left";
   const glassModal =
@@ -22,8 +59,32 @@ export default function FinishedProductRowActions({
   const glassInput =
     "input-field !bg-white/50 !border-white/60 focus:!bg-white/90 focus:!border-[var(--lub-gold)] shadow-sm";
 
+  // Reusable Spinner SVG
+  const LoadingSpinner = () => (
+    <svg
+      className="w-5 h-5 animate-spin text-white"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
+  );
+
   return (
     <div className="flex justify-end items-center gap-2">
+      {/* 1. EDIT ICON */}
       <button
         onClick={() => setIsEditOpen(true)}
         className="p-2 text-gray-400 hover:text-[var(--lub-gold)] transition-colors"
@@ -31,17 +92,25 @@ export default function FinishedProductRowActions({
         <svg
           className="w-5 h-5"
           fill="none"
-          stroke="currentColor"
           viewBox="0 0 24 24"
+          stroke="currentColor"
         >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+            d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
           />
         </svg>
       </button>
+
+      {/* 2. DELETE ICON */}
       <button
         onClick={() => setIsDeleteOpen(true)}
         className="p-2 text-gray-400 hover:text-red-500 transition-colors"
@@ -61,7 +130,7 @@ export default function FinishedProductRowActions({
         </svg>
       </button>
 
-      {/* Edit Modal */}
+      {/* --- EDIT MODAL --- */}
       {isEditOpen && (
         <div className={glassBackdrop}>
           <div className={glassModal}>
@@ -76,12 +145,10 @@ export default function FinishedProductRowActions({
                 &times;
               </button>
             </div>
+
+            {/* CHANGED FROM action= TO onSubmit= */}
             <form
-              action={async (fd) => {
-                await editFinishedProductAction(fd);
-                setIsEditOpen(false);
-                router.refresh();
-              }}
+              onSubmit={handleEditSubmit}
               className="flex flex-col flex-1 min-h-0"
             >
               <input type="hidden" name="id" value={product.id} />
@@ -129,15 +196,23 @@ export default function FinishedProductRowActions({
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(false)}
-                  className="flex-1 py-2.5 px-4 border border-white/60 bg-white/50 backdrop-blur-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-white/80 transition-all shadow-sm"
+                  disabled={isEditing}
+                  className="flex-1 py-2.5 px-4 border border-white/60 bg-white/50 backdrop-blur-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-white/80 transition-all shadow-sm disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary flex-1 !rounded-xl shadow-lg shadow-[var(--lub-gold)]/20"
+                  disabled={isEditing}
+                  className="btn-primary flex-1 !rounded-xl shadow-lg shadow-[var(--lub-gold)]/20 flex justify-center items-center gap-2 disabled:opacity-70"
                 >
-                  Save Changes
+                  {isEditing ? (
+                    <>
+                      <LoadingSpinner /> Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
                 </button>
               </div>
             </form>
@@ -145,7 +220,7 @@ export default function FinishedProductRowActions({
         </div>
       )}
 
-      {/* Delete Modal */}
+      {/* --- DELETE CONFIRMATION MODAL --- */}
       {isDeleteOpen && (
         <div className={`${glassBackdrop} text-center`}>
           <div className={`${glassModal} !w-auto !max-w-sm p-8`}>
@@ -170,21 +245,23 @@ export default function FinishedProductRowActions({
             <div className="flex gap-3 mt-8">
               <button
                 onClick={() => setIsDeleteOpen(false)}
-                className="flex-1 py-2.5 px-4 border border-white/60 bg-white/50 backdrop-blur-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-white/80 transition-all shadow-sm"
+                disabled={isDeleting}
+                className="flex-1 py-2.5 px-4 border border-white/60 bg-white/50 backdrop-blur-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-white/80 transition-all shadow-sm disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  const fd = new FormData();
-                  fd.append("id", product.id);
-                  await deleteFinishedProductAction(fd);
-                  setIsDeleteOpen(false);
-                  router.refresh();
-                }}
-                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all"
+                onClick={handleDeleteSubmit}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
               >
-                Delete
+                {isDeleting ? (
+                  <>
+                    <LoadingSpinner /> Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
               </button>
             </div>
           </div>
