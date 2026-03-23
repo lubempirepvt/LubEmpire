@@ -69,8 +69,31 @@ export default function ContainerRowActions({
     "input-field !bg-white/50 !border-white/60 focus:!bg-white/90 focus:!border-[var(--lub-gold)] shadow-sm w-full";
   const labelClass = "block text-sm font-bold text-gray-700 mb-1.5";
 
+  // Reusable Spinner SVG
+  const LoadingSpinner = () => (
+    <svg
+      className="w-4 h-4 animate-spin text-current"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
+  );
+
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className="flex items-center justify-end gap-2">
       {/* --- 1. EDIT BUTTON --- */}
       <button
         onClick={() => setIsEditOpen(true)}
@@ -78,7 +101,7 @@ export default function ContainerRowActions({
         title="Edit Container"
       >
         <svg
-          className="w-[18px] h-[18px]"
+          className="w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -86,13 +109,13 @@ export default function ContainerRowActions({
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={1.8}
+            strokeWidth={2}
             d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
           />
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={1.8}
+            strokeWidth={2}
             d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
           />
         </svg>
@@ -105,7 +128,7 @@ export default function ContainerRowActions({
         title="Delete Container"
       >
         <svg
-          className="w-[18px] h-[18px]"
+          className="w-5 h-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -113,7 +136,7 @@ export default function ContainerRowActions({
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={1.8}
+            strokeWidth={2}
             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
           />
         </svg>
@@ -167,9 +190,15 @@ export default function ContainerRowActions({
                   }
                 }}
                 disabled={isDeleting}
-                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
-                {isDeleting ? "Deleting..." : "Delete"}
+                {isDeleting ? (
+                  <>
+                    <LoadingSpinner /> Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
               </button>
             </div>
           </div>
@@ -390,9 +419,15 @@ export default function ContainerRowActions({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="btn-primary flex-1 !rounded-xl shadow-lg shadow-[var(--lub-gold)]/20 disabled:opacity-50"
+                  className="btn-primary flex-1 !rounded-xl shadow-lg shadow-[var(--lub-gold)]/20 flex justify-center items-center gap-2 disabled:opacity-70"
                 >
-                  {isSubmitting ? "Updating..." : "Update Container"}
+                  {isSubmitting ? (
+                    <>
+                      <LoadingSpinner /> Updating...
+                    </>
+                  ) : (
+                    "Update Container"
+                  )}
                 </button>
               </div>
             </form>
