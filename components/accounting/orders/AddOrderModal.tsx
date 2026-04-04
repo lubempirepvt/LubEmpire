@@ -247,10 +247,10 @@ export default function AddOrderModal({
                       </option>
                       {containers.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {/* 🔥 NEW: Added Capacity and Unit directly to the dropdown label */}
+                          {/* 🔥 NEW: Perfectly formatted Capacity display */}
                           {c.name}{" "}
                           {c.capacity_per_piece
-                            ? `- ${c.capacity_per_piece}${c.capacity_unit}`
+                            ? `(Capacity : ${c.capacity_per_piece} ${c.capacity_unit})`
                             : ""}
                         </option>
                       ))}
