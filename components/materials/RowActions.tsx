@@ -22,13 +22,13 @@ export default function RowActions({ material }: { material: any }) {
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // --- HANDLERS (Changed to onSubmit to force immediate UI updates) ---
+  // --- HANDLERS ---
   async function handleAdjustSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); // <-- Stops React from swallowing the state update
+    e.preventDefault();
     setIsAdjusting(true);
 
     const formData = new FormData(e.currentTarget);
-    formData.append("adjustment_type", adjustmentType); // Append manual state
+    formData.append("adjustment_type", adjustmentType);
 
     try {
       await adjustRawMaterialAction(formData);
@@ -42,7 +42,7 @@ export default function RowActions({ material }: { material: any }) {
   }
 
   async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); // <-- Stops React from swallowing the state update
+    e.preventDefault();
     setIsEditing(true);
 
     const formData = new FormData(e.currentTarget);
@@ -73,17 +73,14 @@ export default function RowActions({ material }: { material: any }) {
     }
   };
 
-  // --- STYLES & INLINE SPINNER ---
+  // --- STYLES FOR THE GLASSY MODAL UI ---
   const glassBackdrop =
     "fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[60] p-4 text-left";
   const glassModal =
-    "bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-2xl w-full max-w-md overflow-hidden";
-  const glassHeader =
-    "px-6 py-4 border-b border-white/50 bg-white/40 flex justify-between items-center";
+    "bg-[#f4f5f7]/95 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-3xl w-full max-w-sm flex flex-col overflow-hidden";
   const glassInput =
-    "input-field !bg-white/50 !border-white/60 focus:!bg-white/90 focus:!border-[var(--lub-gold)] shadow-sm w-full";
+    "w-full p-3 bg-white border border-gray-100 shadow-sm rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--lub-gold)]/50 transition-all";
 
-  // Forced text-white so it guarantees visibility
   const Spinner = () => (
     <svg
       className="w-5 h-5 animate-spin text-white"
@@ -111,7 +108,7 @@ export default function RowActions({ material }: { material: any }) {
       {/* 1. EDIT ICON */}
       <button
         onClick={() => setIsEditOpen(true)}
-        className="p-2 text-gray-400 hover:text-[var(--lub-gold)] transition-colors"
+        className="p-2 text-gray-400 hover:text-[var(--lub-gold)] transition-colors focus:outline-none"
         title="Edit Material"
       >
         <svg
@@ -135,31 +132,24 @@ export default function RowActions({ material }: { material: any }) {
         </svg>
       </button>
 
-      {/* 2. ADJUSTMENT ICON */}
-      <button
+      {/* =========================================
+          2. ADJUSTMENT ICON (COMMENTED OUT)
+      ========================================= */}
+      {/* <button
         onClick={() => setIsStockOpen(true)}
-        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+        className="p-2 text-gray-400 hover:text-blue-500 transition-colors focus:outline-none"
         title="Manual Adjustment"
       >
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-5.25v9"
-          />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-5.25v9" />
         </svg>
-      </button>
+      </button> 
+      */}
 
       {/* 3. DELETE ICON */}
       <button
         onClick={() => setIsDeleteOpen(true)}
-        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+        className="p-2 text-gray-400 hover:text-red-500 transition-colors focus:outline-none"
         title="Delete Material"
       >
         <svg
@@ -177,26 +167,30 @@ export default function RowActions({ material }: { material: any }) {
         </svg>
       </button>
 
-      {/* --- EDIT MODAL --- */}
+      {/* --- EDIT MODAL (GLASSY UI) --- */}
       {isEditOpen && (
-        <div className={glassBackdrop}>
-          <div className={glassModal}>
-            <div className={glassHeader}>
-              <h2 className="text-lg font-bold text-[var(--lub-dark)]">
+        <div
+          className={glassBackdrop}
+          onClick={() => !isEditing && setIsEditOpen(false)}
+        >
+          <div className={glassModal} onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-5 flex justify-between items-center border-b border-gray-200/50">
+              <h2 className="text-[15px] font-extrabold text-[#334155]">
                 Edit Raw Material
               </h2>
               <button
                 onClick={() => setIsEditOpen(false)}
-                className="text-gray-500 hover:text-red-500 text-2xl leading-none font-bold"
+                className="text-gray-400 hover:text-gray-600 font-bold text-xl leading-none focus:outline-none"
               >
                 &times;
               </button>
             </div>
-            {/* CHANGED FROM action= TO onSubmit= */}
+
             <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
               <input type="hidden" name="id" value={material.id} />
+
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5 drop-shadow-sm">
+                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">
                   Material Name
                 </label>
                 <input
@@ -207,8 +201,9 @@ export default function RowActions({ material }: { material: any }) {
                   required
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5 drop-shadow-sm">
+                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">
                   Measurement Unit
                 </label>
                 <select
@@ -221,19 +216,20 @@ export default function RowActions({ material }: { material: any }) {
                   <option value="KG">Kilogram (KG)</option>
                 </select>
               </div>
-              <div className="pt-2 flex gap-3">
+
+              <div className="pt-3 flex gap-3">
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(false)}
                   disabled={isEditing}
-                  className="flex-1 py-2.5 px-4 border border-white/60 bg-white/50 backdrop-blur-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-white/80 transition-all shadow-sm disabled:opacity-50"
+                  className="flex-1 py-3 px-4 bg-white text-gray-700 font-bold rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 transition-all disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isEditing}
-                  className="btn-primary flex-1 !rounded-xl shadow-lg shadow-[var(--lub-gold)]/20 flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="flex-1 py-3 px-4 bg-[var(--lub-gold)] text-white font-bold rounded-xl shadow-md hover:brightness-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                 >
                   {isEditing ? (
                     <>
@@ -249,134 +245,59 @@ export default function RowActions({ material }: { material: any }) {
         </div>
       )}
 
-      {/* --- MANUAL ADJUSTMENT MODAL --- */}
-      {isStockOpen && (
+      {/* =========================================
+          MANUAL ADJUSTMENT MODAL (COMMENTED OUT)
+      ========================================= */}
+      {/* {isStockOpen && (
         <div className={glassBackdrop}>
           <div className={glassModal}>
-            <div className={glassHeader}>
+            <div className="px-6 py-5 flex justify-between items-center border-b border-gray-200/50">
               <div>
-                <h2 className="text-lg font-bold text-[var(--lub-dark)]">
-                  Manual Adjustment
-                </h2>
-                <p className="text-sm text-gray-600 font-semibold drop-shadow-sm">
-                  {material.name} <span className="text-gray-400">|</span>{" "}
-                  Stock:{" "}
-                  <span className="font-bold text-gray-900">
-                    {Number(material.stock).toFixed(2)} {material.unit}
-                  </span>
+                <h2 className="text-[15px] font-extrabold text-[#334155]">Manual Adjustment</h2>
+                <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                  {material.name} <span className="text-gray-300 mx-1">|</span> Stock: {Number(material.stock).toFixed(2)} {material.unit}
                 </p>
               </div>
-              <button
-                onClick={() => setIsStockOpen(false)}
-                className="text-gray-500 hover:text-red-500 text-2xl leading-none font-bold"
-              >
-                &times;
-              </button>
+              <button onClick={() => setIsStockOpen(false)} className="text-gray-400 hover:text-red-500 text-2xl leading-none font-bold focus:outline-none">&times;</button>
             </div>
             <div className="p-6">
-              {/* CHANGED FROM action= TO onSubmit= */}
               <form onSubmit={handleAdjustSubmit} className="space-y-4">
                 <input type="hidden" name="material_id" value={material.id} />
-
-                <div className="flex gap-3 mb-4 p-1 bg-white/40 border border-white/50 rounded-xl shadow-inner backdrop-blur-md">
-                  <button
-                    type="button"
-                    onClick={() => setAdjustmentType("Add Quantity")}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-                      adjustmentType === "Add Quantity"
-                        ? "bg-green-500 text-white shadow-md shadow-green-500/20"
-                        : "text-gray-600 hover:bg-white/50"
-                    }`}
-                  >
-                    + Add
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustmentType("Remove Quantity")}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-                      adjustmentType === "Remove Quantity"
-                        ? "bg-red-500 text-white shadow-md shadow-red-500/20"
-                        : "text-gray-600 hover:bg-white/50"
-                    }`}
-                  >
-                    - Remove
-                  </button>
+                
+                <div className="flex gap-2 p-1 bg-white/60 border border-gray-200 rounded-xl shadow-inner">
+                  <button type="button" onClick={() => setAdjustmentType("Add Quantity")} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${adjustmentType === "Add Quantity" ? "bg-green-500 text-white shadow-md" : "text-gray-500 hover:bg-white"}`}>+ Add</button>
+                  <button type="button" onClick={() => setAdjustmentType("Remove Quantity")} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${adjustmentType === "Remove Quantity" ? "bg-red-500 text-white shadow-md" : "text-gray-500 hover:bg-white"}`}>- Remove</button>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5 drop-shadow-sm">
-                    Quantity ({material.unit})
-                  </label>
-                  <input
-                    className={glassInput}
-                    type="number"
-                    step="0.01"
-                    name="quantity"
-                    min="0.01"
-                    max={
-                      adjustmentType === "Remove Quantity"
-                        ? material.stock
-                        : undefined
-                    }
-                    required
-                  />
-                  {adjustmentType === "Remove Quantity" && (
-                    <p className="text-[10px] text-red-500 mt-1 font-bold">
-                      * Max available: {Number(material.stock).toFixed(2)}
-                    </p>
-                  )}
+                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">Quantity ({material.unit})</label>
+                  <input className={glassInput} type="number" step="0.01" name="quantity" min="0.01" max={adjustmentType === "Remove Quantity" ? material.stock : undefined} required />
+                  {adjustmentType === "Remove Quantity" && <p className="text-[10px] text-red-500 mt-1 font-bold">* Max available: {Number(material.stock).toFixed(2)}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5 drop-shadow-sm">
-                    Reason
-                  </label>
-                  <input
-                    className={glassInput}
-                    type="text"
-                    name="reason"
-                    placeholder="e.g., Inventory correction, spill"
-                  />
+                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">Reason</label>
+                  <input className={glassInput} type="text" name="reason" placeholder="e.g., Inventory correction, spill" />
                 </div>
 
-                <div className="pt-4 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsStockOpen(false)}
-                    disabled={isAdjusting}
-                    className="flex-1 py-2.5 px-4 border border-white/60 bg-white/50 backdrop-blur-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-white/80 transition-all shadow-sm disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isAdjusting}
-                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${
-                      adjustmentType === "Remove Quantity"
-                        ? "bg-red-500 hover:bg-red-600 shadow-red-500/20"
-                        : "bg-green-500 hover:bg-green-600 shadow-green-500/20"
-                    }`}
-                  >
-                    {isAdjusting ? (
-                      <>
-                        <Spinner /> Saving...
-                      </>
-                    ) : (
-                      "Save Adjustment"
-                    )}
+                <div className="pt-3 flex gap-3">
+                  <button type="button" onClick={() => setIsStockOpen(false)} disabled={isAdjusting} className="flex-1 py-3 px-4 bg-white text-gray-700 font-bold rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 transition-all disabled:opacity-50">Cancel</button>
+                  <button type="submit" disabled={isAdjusting} className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold text-white shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${adjustmentType === "Remove Quantity" ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"}`}>
+                    {isAdjusting ? <><Spinner /> Saving...</> : "Save"}
                   </button>
                 </div>
               </form>
             </div>
           </div>
         </div>
-      )}
+      )} 
+      */}
 
       {/* --- DELETE CONFIRMATION MODAL --- */}
       {isDeleteOpen && (
         <div className={glassBackdrop}>
-          <div className={`${glassModal} p-8 !max-w-sm w-full text-center`}>
-            <div className="w-16 h-16 bg-red-50/80 backdrop-blur-sm border border-red-100 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
+          <div className={`${glassModal} p-8 text-center`}>
+            <div className="w-16 h-16 bg-red-50/80 border border-red-100 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-5">
               <svg
                 className="w-8 h-8"
                 fill="none"
@@ -391,24 +312,24 @@ export default function RowActions({ material }: { material: any }) {
                 />
               </svg>
             </div>
-            <h3 className="text-xl font-extrabold text-gray-900 drop-shadow-sm">
+            <h3 className="text-xl font-extrabold text-[#334155]">
               Are you sure?
             </h3>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 mt-2 font-medium">
               This action cannot be undone.
             </p>
             <div className="flex gap-3 mt-8">
               <button
                 onClick={() => setIsDeleteOpen(false)}
                 disabled={isDeleting}
-                className="flex-1 py-2.5 px-4 border border-white/60 bg-white/50 backdrop-blur-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-white/80 transition-all shadow-sm disabled:opacity-50"
+                className="flex-1 py-3 px-4 bg-white text-gray-700 font-bold rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteSubmit}
                 disabled={isDeleting}
-                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="flex-1 py-3 px-4 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-md transition-all flex justify-center items-center gap-2 disabled:opacity-70"
               >
                 {isDeleting ? (
                   <>
