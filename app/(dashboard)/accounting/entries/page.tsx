@@ -122,6 +122,9 @@ export default async function AccountingEntriesPage({
                     cleanDesc = match[3].trim().replace(/^\(|\)$/g, "");
                   }
 
+                  // Determine if the profit is a loss to style it red
+                  const isLoss = Number(entry.profit) < 0;
+
                   return (
                     <tr
                       key={entry.id}
@@ -177,25 +180,40 @@ export default async function AccountingEntriesPage({
                           <span className="text-gray-300">-</span>
                         )}
                       </td>
+
+                      {/* --- FIX: AMOUNT COLUMN SIGN FORMATTING --- */}
                       <td className="p-3 text-right">
                         <div
                           className={`text-[15px] font-black tracking-tight ${entry.entry_type === "Income" ? "text-green-600" : "text-gray-800"}`}
                         >
-                          {entry.entry_type === "Income" ? "+" : "-"} ₹
-                          {Number(entry.amount).toLocaleString("en-IN", {
-                            maximumFractionDigits: 2,
-                          })}
+                          {entry.entry_type === "Income" ? "+ ₹" : "- ₹"}
+                          {Math.abs(Number(entry.amount)).toLocaleString(
+                            "en-IN",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}
                         </div>
                       </td>
 
-                      {/* --- UPDATED PROFIT COLUMN --- */}
+                      {/* --- FIX: PROFIT COLUMN SIGN FORMATTING --- */}
                       <td className="p-3 text-right">
-                        {entry.entry_type === "Income" && entry.profit ? (
-                          <div className="text-[15px] font-black tracking-tight text-green-600">
-                            ₹
-                            {Number(entry.profit).toLocaleString("en-IN", {
-                              maximumFractionDigits: 2,
-                            })}
+                        {entry.entry_type === "Income" &&
+                        entry.profit != null ? (
+                          <div
+                            className={`text-[15px] font-black tracking-tight ${
+                              isLoss ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {isLoss ? "- ₹" : "₹"}
+                            {Math.abs(Number(entry.profit)).toLocaleString(
+                              "en-IN",
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
+                            )}
                           </div>
                         ) : (
                           <span className="text-gray-300">-</span>

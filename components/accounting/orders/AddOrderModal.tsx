@@ -247,7 +247,6 @@ export default function AddOrderModal({
                       </option>
                       {containers.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {/* 🔥 NEW: Perfectly formatted Capacity display */}
                           {c.name}{" "}
                           {c.capacity_per_piece
                             ? `(Capacity : ${c.capacity_per_piece} ${c.capacity_unit})`
@@ -320,8 +319,9 @@ export default function AddOrderModal({
                       <span
                         className={`font-black text-2xl tracking-tight ${estimatedProfit >= 0 ? "text-green-700" : "text-red-600"}`}
                       >
-                        ₹
-                        {estimatedProfit.toLocaleString("en-IN", {
+                        {/* 🔥 FIXED MINUS SIGN FORMATTING 🔥 */}
+                        {estimatedProfit < 0 ? "- ₹" : "₹"}
+                        {Math.abs(estimatedProfit).toLocaleString("en-IN", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
