@@ -102,7 +102,7 @@ export default async function AccountingEntriesPage({
                   Amount
                 </th>
                 <th className="w-[10%] text-right p-3 text-xs font-bold text-gray-500 uppercase border-b">
-                  Profit
+                  Profit/Loss
                 </th>
               </tr>
             </thead>
