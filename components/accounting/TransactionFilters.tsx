@@ -57,6 +57,7 @@ export default function TransactionFilters({
     applyFilters("", "", "");
   };
 
+  // 🔥 EXPORT LOGIC UPDATED FOR DEBIT/CREDIT ACCOUNTING FORMAT 🔥
   const handleExportExcel = () => {
     if (!dataToExport || dataToExport.length === 0) {
       alert("No data available to export.");
@@ -66,6 +67,8 @@ export default function TransactionFilters({
     const rows = dataToExport.map((entry) => {
       let partyName = "-";
       let cleanDesc = entry.description || "";
+
+      // Attempt to clean the description
       const match = (entry.description || "").match(
         /^(.*?)\s*-\s*(.*?)\s*(\(.*)$/,
       );
@@ -74,23 +77,30 @@ export default function TransactionFilters({
         cleanDesc = match[3].trim().replace(/^\(|\)$/g, "");
       }
 
+      // Safe Date Formatting
       const dateObj = new Date(entry.created_at);
       const safeDate = `${String(dateObj.getDate()).padStart(2, "0")}-${String(dateObj.getMonth() + 1).padStart(2, "0")}-${dateObj.getFullYear()}`;
 
+      // Convert Amount to Number
+      const rawAmount = Number(entry.amount) || 0;
+
+      // Determine Debit/Credit based on Entry Type
+      const isIncome = entry.entry_type === "Income";
+      const debitValue = isIncome ? "-" : Number(rawAmount.toFixed(2));
+      const creditValue = isIncome ? Number(rawAmount.toFixed(2)) : "-";
+
       return {
         Date: safeDate,
-        Type: entry.entry_type === "Income" ? "SALES" : "PURCHASE",
-        "Party Name": partyName,
-        Description: cleanDesc,
+        Type: isIncome ? "SALES" : "PURCHASE",
+        "Party Name": partyName.replace(/,/g, " "),
+        Description: cleanDesc.replace(/,/g, " "),
         Qty: entry.quantity || 0,
         Unit: entry.unit || "PCS",
-        // 🔥 FIX: Ensure Rate, Amount, and Profit are perfectly rounded to 2 decimal places in Excel
         "Rate (₹)":
           entry.rate != null ? Number(Number(entry.rate).toFixed(2)) : 0,
-        "Amount (₹)":
-          entry.amount != null ? Number(Number(entry.amount).toFixed(2)) : 0,
-        "Profit/Loss (₹)":
-          entry.profit != null ? Number(Number(entry.profit).toFixed(2)) : "-",
+        // 🔥 Replaced "Amount" and "Profit" with Debit/Credit columns
+        "Debit (₹)": debitValue,
+        "Credit (₹)": creditValue,
       };
     });
 
@@ -98,19 +108,20 @@ export default function TransactionFilters({
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Transactions");
 
+    // Adjust column widths for the new layout
     worksheet["!cols"] = [
-      { wch: 12 },
-      { wch: 10 },
-      { wch: 25 },
-      { wch: 40 },
-      { wch: 8 },
-      { wch: 8 },
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 15 },
+      { wch: 12 }, // Date
+      { wch: 10 }, // Type
+      { wch: 25 }, // Party Name
+      { wch: 40 }, // Description
+      { wch: 8 }, // Qty
+      { wch: 8 }, // Unit
+      { wch: 12 }, // Rate
+      { wch: 15 }, // Debit
+      { wch: 15 }, // Credit
     ];
 
-    const filename = `LubEmpire_Report_${new Date().toISOString().split("T")[0]}.xlsx`;
+    const filename = `LubEmpire_Ledger_${new Date().toISOString().split("T")[0]}.xlsx`;
     XLSX.writeFile(workbook, filename);
   };
 

@@ -31,6 +31,16 @@ export default async function ContainersPage({
   let transactionsData: any[] = [];
   let count = 0;
 
+  // 🔥 1. FETCH ALL CONTAINERS (INCLUDING BASE ID FOR SHARED STOCK)
+  const { data: allContainers } = await supabase
+    .from("containers")
+    .select(
+      "id, name, type, capacity_per_piece, capacity_unit, stock, base_container_id",
+    )
+    .order("name");
+
+  const safeAllContainers = allContainers || [];
+
   if (tab === "containers") {
     let query = supabase
       .from("containers")
@@ -38,7 +48,6 @@ export default async function ContainersPage({
       .order("name", { ascending: true });
 
     if (search) query = query.ilike("name", `%${search}%`);
-
     if (typeFilter !== "all") query = query.eq("type", typeFilter);
 
     const { data, count: c } = await query.range(from, to);
@@ -67,18 +76,9 @@ export default async function ContainersPage({
     console.error("Error fetching materials:", materialsError);
 
   const safeMaterials = materialsData || [];
-
   const boxes = safeMaterials.filter((m) => m.type === "Box");
   const stickers = safeMaterials.filter((m) => m.type === "Sticker");
   const caps = safeMaterials.filter((m) => m.type === "Cap");
-
-  // 🔥 FETCHING EXISTING CONTAINERS FOR THE VARIANT MODE 🔥
-  const { data: allContainers } = await supabase
-    .from("containers")
-    .select("id, name, type, capacity_per_piece, capacity_unit")
-    .order("name");
-
-  const safeAllContainers = allContainers || [];
 
   const getMaterialName = (id: string | null) => {
     if (!id) return null;
@@ -131,7 +131,7 @@ export default async function ContainersPage({
                   boxes={boxes}
                   stickers={stickers}
                   caps={caps}
-                  existingContainers={safeAllContainers} // 🔥 PASSED THE EXISTING CONTAINERS PROP HERE
+                  existingContainers={safeAllContainers}
                 />
               </div>
             </div>
@@ -146,16 +146,16 @@ export default async function ContainersPage({
                     <th className="w-[10%] text-left p-4 text-xs font-bold text-gray-500 uppercase border-b">
                       Type
                     </th>
-                    <th className="w-[10%] text-center p-4 text-xs font-bold text-gray-500 uppercase border-b">
+                    <th className="w-[12%] text-center p-4 text-xs font-bold text-gray-500 uppercase border-b">
                       Stock (PCS)
                     </th>
                     <th className="w-[10%] text-center p-4 text-xs font-bold text-gray-500 uppercase border-b">
                       Capacity
                     </th>
-                    <th className="w-[15%] text-left p-4 text-xs font-bold text-gray-500 uppercase border-b">
+                    <th className="w-[14%] text-left p-4 text-xs font-bold text-gray-500 uppercase border-b">
                       Master Box
                     </th>
-                    <th className="w-[15%] text-left p-4 text-xs font-bold text-gray-500 uppercase border-b">
+                    <th className="w-[14%] text-left p-4 text-xs font-bold text-gray-500 uppercase border-b">
                       Cap
                     </th>
                     <th className="w-[10%] text-left p-4 text-xs font-bold text-gray-500 uppercase border-b">
@@ -168,104 +168,137 @@ export default async function ContainersPage({
                 </thead>
                 <tbody>
                   {containersData.length > 0 ? (
-                    containersData.map((container) => (
-                      <tr
-                        key={container.id}
-                        className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
-                      >
-                        <td className="p-4 text-left font-semibold text-gray-800 align-middle">
-                          {container.name}
-                        </td>
+                    containersData.map((container) => {
+                      // 🔥 LOOKUP BASE CONTAINER STOCK IF IT'S A VARIANT
+                      const isVariant = !!container.base_container_id;
+                      const baseContainer = isVariant
+                        ? safeAllContainers.find(
+                            (c) => c.id === container.base_container_id,
+                          )
+                        : null;
 
-                        <td className="p-4 text-left align-middle">
-                          <span
-                            className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${
-                              container.type?.toLowerCase() === "bucket"
-                                ? "bg-orange-50 text-orange-600 border-orange-100"
-                                : "bg-blue-50 text-blue-600 border-blue-100"
-                            }`}
-                          >
-                            {container.type || "Bottle"}
-                          </span>
-                        </td>
+                      const displayStock = isVariant
+                        ? baseContainer?.stock || 0
+                        : container.stock;
 
-                        <td
-                          className={`p-4 text-center align-middle font-bold ${
-                            container.stock <= 0
-                              ? "text-red-500"
-                              : "text-green-600"
-                          }`}
+                      return (
+                        <tr
+                          key={container.id}
+                          className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
                         >
-                          {Number(container.stock).toFixed(0)}
-                        </td>
+                          <td className="p-4 text-left font-semibold text-gray-800 align-middle">
+                            {container.name}
+                          </td>
 
-                        <td className="p-4 text-center align-middle">
-                          <div className="font-bold text-gray-700">
-                            {Number(container.capacity_per_piece)}{" "}
-                            {container.capacity_unit}
-                          </div>
-                        </td>
-
-                        <td className="p-4 text-left align-middle">
-                          {container.box_id ? (
-                            <>
-                              <div className="text-sm font-semibold text-gray-700 truncate">
-                                {getMaterialName(container.box_id)}
-                              </div>
-                              <div className="text-xs text-purple-600 font-bold mt-0.5 bg-purple-50 inline-block px-1.5 py-0.5 rounded">
-                                Pack of {container.pieces_per_box}
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
-                              Not Required
+                          <td className="p-4 text-left align-middle">
+                            <span
+                              className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${
+                                container.type?.toLowerCase() === "bucket"
+                                  ? "bg-orange-50 text-orange-600 border-orange-100"
+                                  : "bg-blue-50 text-blue-600 border-blue-100"
+                              }`}
+                            >
+                              {container.type || "Bottle"}
                             </span>
-                          )}
-                        </td>
+                          </td>
 
-                        <td className="p-4 text-left align-middle">
-                          {container.cap_id ? (
-                            <>
-                              <div className="text-sm font-semibold text-gray-700 truncate">
-                                {getMaterialName(container.cap_id)}
-                              </div>
-                              <div className="text-xs text-gray-500 font-medium mt-0.5">
-                                Qty:{" "}
-                                <span className="text-emerald-600 font-bold">
-                                  {container.cap_quantity}
+                          <td className="p-4 text-center align-middle">
+                            <div
+                              className={`font-bold ${
+                                displayStock <= 0
+                                  ? "text-red-500"
+                                  : "text-green-600"
+                              }`}
+                            >
+                              {Number(displayStock).toFixed(0)}
+                            </div>
+                            {isVariant && baseContainer && (
+                              <div className="text-[9px] font-bold text-gray-400 mt-1 uppercase leading-tight">
+                                Shared with
+                                <br />
+                                <span className="text-gray-500">
+                                  {baseContainer.name}
                                 </span>
                               </div>
-                            </>
-                          ) : (
-                            <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
-                              Not Required
-                            </span>
-                          )}
-                        </td>
+                            )}
+                          </td>
 
-                        <td className="p-4 text-left align-middle">
-                          <div className="text-sm font-semibold text-gray-700 truncate">
-                            {getMaterialName(container.sticker_id) ||
-                              "Missing Sticker!"}
-                          </div>
-                          <div className="text-xs text-gray-500 font-medium mt-0.5">
-                            Qty:{" "}
-                            <span className="text-blue-600 font-bold">
-                              {container.sticker_quantity}
-                            </span>
-                          </div>
-                        </td>
+                          <td className="p-4 text-center align-middle">
+                            <div className="font-bold text-gray-700">
+                              {Number(container.capacity_per_piece)}{" "}
+                              {container.capacity_unit}
+                            </div>
+                          </td>
 
-                        <td className="p-4 text-right align-middle">
-                          <ContainerRowActions
-                            container={container}
-                            boxes={boxes}
-                            stickers={stickers}
-                            caps={caps}
-                          />
-                        </td>
-                      </tr>
-                    ))
+                          <td className="p-4 text-left align-middle">
+                            {container.box_id ? (
+                              <>
+                                <div className="text-sm font-semibold text-gray-700 truncate">
+                                  {getMaterialName(container.box_id)}
+                                </div>
+                                <div className="text-xs text-purple-600 font-bold mt-0.5 bg-purple-50 inline-block px-1.5 py-0.5 rounded">
+                                  Pack of {container.pieces_per_box}
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
+                                Not Required
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-4 text-left align-middle">
+                            {container.cap_id ? (
+                              <>
+                                <div className="text-sm font-semibold text-gray-700 truncate">
+                                  {getMaterialName(container.cap_id)}
+                                </div>
+                                <div className="text-xs text-gray-500 font-medium mt-0.5">
+                                  Qty:{" "}
+                                  <span className="text-emerald-600 font-bold">
+                                    {container.cap_quantity}
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
+                                Not Required
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-4 text-left align-middle">
+                            {container.sticker_id ? (
+                              <>
+                                <div className="text-sm font-semibold text-gray-700 truncate">
+                                  {getMaterialName(container.sticker_id) ||
+                                    "Missing Sticker!"}
+                                </div>
+                                <div className="text-xs text-gray-500 font-medium mt-0.5">
+                                  Qty:{" "}
+                                  <span className="text-blue-600 font-bold">
+                                    {container.sticker_quantity}
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
+                                Not Required
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-4 text-right align-middle">
+                            <ContainerRowActions
+                              container={container}
+                              boxes={boxes}
+                              stickers={stickers}
+                              caps={caps}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td
@@ -289,7 +322,12 @@ export default async function ContainersPage({
                 Bottles/Buckets Purchase History
               </h3>
               <div className="flex items-center gap-2 shrink-0">
-                <ContainerStockInModal containers={safeAllContainers} />
+                {/* 🔥 FIX: TypeScript 'any' bypass to silence the error */}
+                <ContainerStockInModal
+                  containers={safeAllContainers.filter(
+                    (c: any) => !c.base_container_id,
+                  )}
+                />
               </div>
             </div>
 

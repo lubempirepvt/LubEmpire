@@ -71,7 +71,7 @@ export async function purchaseRawMaterialAction(formData: FormData) {
   // Step A: Fetch current stock AND current average cost
   const { data: material, error: fetchError } = await supabase
     .from("materials")
-    .select("name, unit, stock, cost_per_unit") // <-- ADDED cost_per_unit
+    .select("name, unit, stock, cost_per_unit")
     .eq("id", material_id)
     .single();
 
@@ -112,10 +112,13 @@ export async function purchaseRawMaterialAction(formData: FormData) {
 
   if (stockError) throw new Error("Failed to log transaction");
 
-  // Step D: Expense Entry
+  // Step D: Expense Entry (🔥 FIXED: Now saving Qty, Rate, and Unit!)
   const { error: accError } = await supabase.from("accounting_entries").insert({
     entry_type: "Expense",
     amount: total_cost,
+    quantity: quantity, // <-- ADDED
+    rate: rate, // <-- ADDED
+    unit: material.unit, // <-- ADDED (e.g., Ltr, KG, PCS)
     description: `Purchase - ${supplier} (${quantity} ${material.unit} of ${material.name})`,
   });
 

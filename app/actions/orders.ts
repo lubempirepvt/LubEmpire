@@ -40,14 +40,24 @@ export async function createOrderAction(formData: FormData) {
   const reqStickers = total_pieces * (container.sticker_quantity || 0);
   const reqCaps = total_pieces * (container.cap_quantity || 0);
 
+  // 🔥 CRITICAL: FIND THE REAL PHYSICAL INVENTORY TARGET
+  const actualInventoryContainerId =
+    container.base_container_id || container.id;
+  const { data: targetContainer } = await supabase
+    .from("containers")
+    .select("stock, name")
+    .eq("id", actualInventoryContainerId)
+    .single();
+
   if (Number(fp.stock) < bulkVolumeToDeduct) {
     return {
       error: `Insufficient Oil! Need ${bulkVolumeToDeduct}${fp.unit}, have ${fp.stock}${fp.unit}.`,
     };
   }
-  if (Number(container.stock) < total_pieces) {
+  // 🔥 CHECK STOCK AGAINST THE BASE CONTAINER
+  if (Number(targetContainer?.stock || 0) < total_pieces) {
     return {
-      error: `Insufficient Empty ${container.name}! Need ${total_pieces} PCS, have ${container.stock} PCS.`,
+      error: `Insufficient Empty ${targetContainer?.name}! Need ${total_pieces} PCS, have ${targetContainer?.stock} PCS.`,
     };
   }
 
@@ -57,7 +67,6 @@ export async function createOrderAction(formData: FormData) {
     container.cap_id,
   ].filter(Boolean);
 
-  // 🔥 FIX 1: Fetch cost_per_unit for the materials!
   const { data: materials } = await supabase
     .from("materials")
     .select("id, name, stock, cost_per_unit")
@@ -77,7 +86,6 @@ export async function createOrderAction(formData: FormData) {
   if (container.cap_id && (!capStock || capStock.stock < reqCaps))
     return { error: `Insufficient Caps!` };
 
-  // 🔥 FIX 2: SERVER-SIDE PROFIT CALCULATION (INCLUDING ALL PACKAGING)
   const oilCost = bulkVolumeToDeduct * Number(fp.cost_per_unit || 0);
   const bottleCost = total_pieces * Number(container.cost_per_piece || 0);
   const boxCost = container.box_id
@@ -99,13 +107,16 @@ export async function createOrderAction(formData: FormData) {
     .from("finished_products")
     .update({ stock: Number(fp.stock) - bulkVolumeToDeduct })
     .eq("id", fp.id);
+
+  // 🔥 DEDUCT FROM THE BASE CONTAINER
   await supabase
     .from("containers")
-    .update({ stock: Number(container.stock) - total_pieces })
-    .eq("id", container.id);
+    .update({ stock: Number(targetContainer!.stock) - total_pieces })
+    .eq("id", actualInventoryContainerId);
 
+  // 🔥 LOG THE USAGE AGAINST THE BASE CONTAINER
   await supabase.from("container_transactions").insert({
-    container_id: container.id,
+    container_id: actualInventoryContainerId,
     transaction_type: "Order Use",
     quantity: -Math.abs(total_pieces),
     reason: `Sales Order: ${customer_name}`,
@@ -161,25 +172,21 @@ export async function createOrderAction(formData: FormData) {
     rate: rate_per_box,
     unit: "Boxes",
     description: `Sales Order - ${customer_name} (${boxes_quantity} Cartons of ${fp.product_name})`,
-    profit: realCalculatedProfit, // 🔥 FIX 3: SAVING THE REAL PROFIT
+    profit: realCalculatedProfit,
   });
 
   revalidatePath("/", "layout");
   return { success: true };
 }
 
-// ==========================================
-// EDIT ORDER ACTION
-// ==========================================
 export async function editOrderAction(formData: FormData) {
   const orderId = formData.get("id") as string;
   const newCustomerName = formData.get("customer_name") as string;
   const newBoxesQty = Number(formData.get("boxes_quantity"));
   const newRate = Number(formData.get("rate_per_piece"));
 
-  if (!orderId || !newCustomerName || newBoxesQty <= 0 || newRate <= 0) {
+  if (!orderId || !newCustomerName || newBoxesQty <= 0 || newRate <= 0)
     throw new Error("Invalid input data.");
-  }
 
   const supabase = await createClient();
 
@@ -205,6 +212,15 @@ export async function editOrderAction(formData: FormData) {
     if (!container || !fp)
       throw new Error("Missing container or product data.");
 
+    // 🔥 FIND THE TARGET BASE CONTAINER FOR INVENTORY
+    const actualInventoryContainerId =
+      container.base_container_id || container.id;
+    const { data: targetContainer } = await supabase
+      .from("containers")
+      .select("stock, name")
+      .eq("id", actualInventoryContainerId)
+      .single();
+
     const boxDelta = newBoxesQty - order.boxes_quantity;
     const pieceDelta = boxDelta * container.pieces_per_box;
 
@@ -223,7 +239,6 @@ export async function editOrderAction(formData: FormData) {
       container.cap_id,
     ].filter(Boolean);
 
-    // 🔥 FIX 4: Fetch cost_per_unit in edit action too
     const { data: materials } = await supabase
       .from("materials")
       .select("id, stock, cost_per_unit")
@@ -238,10 +253,12 @@ export async function editOrderAction(formData: FormData) {
         throw new Error(
           `Insufficient Oil! Need ${bulkVolumeDelta}${fp.unit} more.`,
         );
-      if (Number(container.stock) < pieceDelta)
+      // 🔥 CHECK AGAINST BASE CONTAINER STOCK
+      if (Number(targetContainer!.stock) < pieceDelta)
         throw new Error(
-          `Insufficient Empty Containers! Need ${pieceDelta} more.`,
+          `Insufficient ${targetContainer!.name}! Need ${pieceDelta} more.`,
         );
+
       if (container.box_id && (!boxStock || boxStock.stock < boxDelta))
         throw new Error("Insufficient Boxes!");
       if (
@@ -258,13 +275,16 @@ export async function editOrderAction(formData: FormData) {
         .from("finished_products")
         .update({ stock: Number(fp.stock) - bulkVolumeDelta })
         .eq("id", fp.id);
+
+      // 🔥 UPDATE BASE CONTAINER STOCK
       await supabase
         .from("containers")
-        .update({ stock: Number(container.stock) - pieceDelta })
-        .eq("id", container.id);
+        .update({ stock: Number(targetContainer!.stock) - pieceDelta })
+        .eq("id", actualInventoryContainerId);
 
+      // 🔥 LOG AGAINST BASE CONTAINER
       await supabase.from("container_transactions").insert({
-        container_id: container.id,
+        container_id: actualInventoryContainerId,
         transaction_type:
           boxDelta > 0 ? "Order Increase" : "Order Decrease (Refund)",
         quantity: -pieceDelta,
@@ -309,7 +329,6 @@ export async function editOrderAction(formData: FormData) {
       })
       .eq("id", orderId);
 
-    // 🔥 FIX 5: Full Profit Calculation for Edits
     let newBulkVolume =
       Number(container.capacity_per_piece || 0) * newTotalPieces;
     if (container.capacity_unit === "ml" && fp.unit === "Ltr")
@@ -349,7 +368,7 @@ export async function editOrderAction(formData: FormData) {
         quantity: newBoxesQty,
         rate: newRatePerBox,
         description: newDescription,
-        profit: recalculatedProfit, // 🔥 FIX 6: Saving correct edit profit
+        profit: recalculatedProfit,
       })
       .eq("description", oldDescription);
 
@@ -359,9 +378,6 @@ export async function editOrderAction(formData: FormData) {
   }
 }
 
-// ==========================================
-// DELETE ORDER ACTION
-// ==========================================
 export async function deleteOrderAction(formData: FormData) {
   const orderId = formData.get("id") as string;
   if (!orderId) throw new Error("Order ID is required");
@@ -390,6 +406,15 @@ export async function deleteOrderAction(formData: FormData) {
     if (container && fp) {
       const total_pieces = order.boxes_quantity * container.pieces_per_box;
 
+      // 🔥 FIND TARGET BASE CONTAINER TO REFUND INVENTORY TO
+      const actualInventoryContainerId =
+        container.base_container_id || container.id;
+      const { data: targetContainer } = await supabase
+        .from("containers")
+        .select("stock")
+        .eq("id", actualInventoryContainerId)
+        .single();
+
       let bulkVolumeToRefund =
         Number(container.capacity_per_piece) * total_pieces;
       if (container.capacity_unit === "ml" && fp.unit === "Ltr")
@@ -405,13 +430,16 @@ export async function deleteOrderAction(formData: FormData) {
         .from("finished_products")
         .update({ stock: Number(fp.stock) + bulkVolumeToRefund })
         .eq("id", fp.id);
+
+      // 🔥 REFUND STOCK TO BASE CONTAINER
       await supabase
         .from("containers")
-        .update({ stock: Number(container.stock) + total_pieces })
-        .eq("id", container.id);
+        .update({ stock: Number(targetContainer!.stock) + total_pieces })
+        .eq("id", actualInventoryContainerId);
 
+      // 🔥 LOG REFUND AGAINST BASE CONTAINER
       await supabase.from("container_transactions").insert({
-        container_id: container.id,
+        container_id: actualInventoryContainerId,
         transaction_type: "Order Deleted",
         quantity: Math.abs(total_pieces),
         reason: `Order Deleted: ${order.customer_name}`,
