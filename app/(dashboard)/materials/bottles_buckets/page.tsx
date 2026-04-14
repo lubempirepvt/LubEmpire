@@ -361,8 +361,7 @@ export default async function ContainersPage({
                 <tbody>
                   {transactionsData.length ? (
                     transactionsData.map((txn) => {
-                      const totalAmount =
-                        Number(txn.quantity) * Number(txn.rate);
+                      const totalAmount = Number(txn.quantity) * Number(txn.rate);
 
                       return (
                         <tr
