@@ -4,7 +4,7 @@ import AddCapModal from "@/components/materials/caps/AddCapModal";
 import CapRowActions from "@/components/materials/caps/CapRowActions";
 import CapStockInModal from "@/components/materials/caps/CapStockInModal";
 import CapFilters from "@/components/materials/caps/CapFilters";
-import EditCapStockInModal from "@/components/materials/caps/EditCapStockInModal"; // 🔥 NEW IMPORT
+import EditCapStockInModal from "@/components/materials/caps/EditCapStockInModal";
 
 export default async function CapsPage({
   searchParams,
@@ -30,9 +30,6 @@ export default async function CapsPage({
   let transactionsData: any[] = [];
   let count = 0;
 
-  // 🔥 Dictionary to store the newest deduction timestamp for each cap
-  let latestDeductions: Record<string, number> = {};
-
   if (tab === "caps") {
     let query = supabase
       .from("materials")
@@ -56,35 +53,6 @@ export default async function CapsPage({
     const { data, count: c } = await query.range(from, to);
     transactionsData = data || [];
     count = c || 0;
-
-    // 🔥 MAM'S LOGIC: FETCH ALL DEDUCTIONS TO SEE IF STOCK WAS USED
-    if (transactionsData.length > 0) {
-      const materialIdsOnPage = [
-        ...new Set(transactionsData.map((t) => t.material_id)),
-      ];
-
-      const { data: deductions } = await supabase
-        .from("material_transactions")
-        .select("material_id, created_at")
-        .in("transaction_type", [
-          "Order Use",
-          "Manual Remove",
-          "Production Use",
-        ]) // Any transaction that removes stock
-        .in("material_id", materialIdsOnPage);
-
-      if (deductions) {
-        deductions.forEach((d) => {
-          const time = new Date(d.created_at).getTime();
-          if (
-            !latestDeductions[d.material_id] ||
-            time > latestDeductions[d.material_id]
-          ) {
-            latestDeductions[d.material_id] = time; // Save the absolute newest deduction time
-          }
-        });
-      }
-    }
   }
 
   const totalPages = Math.ceil(count / pageSize);
@@ -222,7 +190,6 @@ export default async function CapsPage({
                     <th className="w-[15%] text-right p-4 text-xs font-bold text-gray-500 uppercase border-b">
                       Date
                     </th>
-                    {/* 🔥 ADDED ACTIONS HEADER */}
                     <th className="w-[10%] text-right p-4 text-xs font-bold text-gray-500 uppercase border-b">
                       Actions
                     </th>
@@ -233,14 +200,6 @@ export default async function CapsPage({
                     transactionsData.map((txn) => {
                       const totalAmount =
                         Number(txn.quantity) * Number(txn.rate);
-
-                      // 🔥 APPLY THE LOGIC: Compare purchase date to latest deduction date
-                      const txnTime = new Date(txn.created_at).getTime();
-                      const lastDeductionTime =
-                        latestDeductions[txn.material_id] || 0;
-
-                      // If a deduction happened AFTER this was purchased, it is locked.
-                      const isUsed = lastDeductionTime > txnTime;
 
                       return (
                         <tr
@@ -273,17 +232,8 @@ export default async function CapsPage({
                             {new Date(txn.created_at).toLocaleDateString()}
                           </td>
                           <td className="p-4 text-right">
-                            {/* 🔥 ONLY SHOW EDIT IF NOT USED */}
-                            {!isUsed ? (
-                              <EditCapStockInModal transaction={txn} />
-                            ) : (
-                              <span
-                                className="text-[10px] uppercase font-bold text-gray-400 tracking-wider cursor-not-allowed"
-                                title="Cannot edit: This stock has already been consumed in production or adjustments."
-                              >
-                                Locked
-                              </span>
-                            )}
+                            {/* 🔥 Edit button ALWAYS visible! */}
+                            <EditCapStockInModal transaction={txn} />
                           </td>
                         </tr>
                       );
@@ -291,7 +241,7 @@ export default async function CapsPage({
                   ) : (
                     <tr>
                       <td
-                        colSpan={7} // 🔥 UPDATED TO 7 COLUMNS
+                        colSpan={7}
                         className="text-center py-20 text-gray-400"
                       >
                         No purchase history found.

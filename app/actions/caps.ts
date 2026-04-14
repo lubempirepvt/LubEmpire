@@ -173,6 +173,7 @@ export async function adjustCapAction(formData: FormData) {
 }
 
 // 🔥 NEW: Edit Existing Purchase (With Moving Average Recalculation)
+
 export async function editCapPurchaseAction(formData: FormData) {
   const transaction_id = formData.get("transaction_id") as string;
   const new_quantity = Number(formData.get("quantity"));
@@ -211,18 +212,23 @@ export async function editCapPurchaseAction(formData: FormData) {
   const currentTotalValue = currentStock * currentAvgCost;
   const oldPurchaseValue = old_quantity * old_rate;
 
-  let tempStock = currentStock - old_quantity;
+  let tempStock = currentStock - old_quantity; // This is the stock WITHOUT this purchase
   let tempTotalValue = currentTotalValue - oldPurchaseValue;
-
-  if (tempStock < 0) tempStock = 0;
-  if (tempTotalValue < 0) tempTotalValue = 0;
 
   // 4. APPLY the newly edited purchase values
   const newPurchaseValue = new_quantity * new_rate;
   const newStock = tempStock + new_quantity;
 
+  // 🔥 SAFETY CHECK: Prevent the edit from driving inventory into the negative
+  if (newStock < 0) {
+    throw new Error(
+      `Cannot reduce quantity to ${new_quantity}. ${Math.abs(tempStock)} units of this purchase have already been consumed. Lowering it this much would result in negative inventory!`
+    );
+  }
+
+  // Calculate the new blended average cost!
   const newAvgCost =
-    newStock > 0 ? (tempTotalValue + newPurchaseValue) / newStock : 0;
+    newStock > 0 ? Math.max(0, (tempTotalValue + newPurchaseValue) / newStock) : 0;
 
   // 5. Update Database: Materials Table
   await supabase

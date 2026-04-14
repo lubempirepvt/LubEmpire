@@ -182,7 +182,7 @@ export async function adjustRawMaterialAction(formData: FormData) {
   revalidatePath("/materials/raw-materials");
 }
 
-// 🔥 NEW: 6. Edit Existing Purchase (With Moving Average Recalculation)
+// 🔥 6. Edit Existing Purchase (Allows editing used stock, blocks negative inventory)
 export async function editRawMaterialPurchaseAction(formData: FormData) {
   const transaction_id = formData.get("transaction_id") as string;
   const new_quantity = Number(formData.get("quantity"));
@@ -191,7 +191,7 @@ export async function editRawMaterialPurchaseAction(formData: FormData) {
 
   const supabase = await createClient();
 
-  // 1. Fetch the exact old transaction details (including material name/unit for the ledger)
+  // 1. Fetch the exact old transaction details
   const { data: txn, error: txnError } = await supabase
     .from("material_transactions")
     .select("*, materials(name, unit)")
@@ -204,7 +204,6 @@ export async function editRawMaterialPurchaseAction(formData: FormData) {
   const old_rate = Number(txn.rate);
   const material_id = txn.material_id;
 
-  // Safe extraction for TS
   const matData = txn.materials as any;
   const material_name = matData?.name || "Unknown Material";
   const material_unit = matData?.unit || "Unit";
@@ -223,20 +222,25 @@ export async function editRawMaterialPurchaseAction(formData: FormData) {
   const currentTotalValue = currentStock * currentAvgCost;
   const oldPurchaseValue = old_quantity * old_rate;
 
-  let tempStock = currentStock - old_quantity;
+  let tempStock = currentStock - old_quantity; // This is the stock WITHOUT this purchase
   let tempTotalValue = currentTotalValue - oldPurchaseValue;
-
-  // Prevent floating point weirdness from dropping it below absolute zero
-  if (tempStock < 0) tempStock = 0;
-  if (tempTotalValue < 0) tempTotalValue = 0;
 
   // 4. APPLY the newly edited purchase values
   const newPurchaseValue = new_quantity * new_rate;
   const newStock = tempStock + new_quantity;
 
+  // 🔥 SAFETY CHECK: Prevent the edit from driving inventory into the negative
+  if (newStock < 0) {
+    throw new Error(
+      `Cannot reduce quantity to ${new_quantity}. ${Math.abs(tempStock)} units of this purchase have already been consumed. Lowering it this much would result in negative inventory!`,
+    );
+  }
+
   // Calculate the new blended average cost!
   const newAvgCost =
-    newStock > 0 ? (tempTotalValue + newPurchaseValue) / newStock : 0;
+    newStock > 0
+      ? Math.max(0, (tempTotalValue + newPurchaseValue) / newStock)
+      : 0;
 
   // 5. Update Database: Materials Table
   await supabase
