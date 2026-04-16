@@ -18,13 +18,14 @@ export default function OrderRowActions({
   }[];
 }) {
   const router = useRouter();
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  // 🔥 Sticker state (only ID needed now)
+  // Sticker state (only ID needed now)
   const [selectedStickerId, setSelectedStickerId] = useState(
     order.sticker_id || "",
   );
@@ -88,8 +89,55 @@ export default function OrderRowActions({
     </svg>
   );
 
+  // Formatting helpers for the Info Modal
+  const dateObj = new Date(order.created_at);
+  const formattedDate = dateObj.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const dd = String(dateObj.getDate()).padStart(2, "0");
+  const paddedNum = String(order.order_number).padStart(4, "0");
+  const formattedOrderId = `ORD-${yyyy}${mm}${dd}-${paddedNum}`;
+
+  const containerPieces = order.containers?.pieces_per_box || 1;
+  const totalPieces = order.boxes_quantity * containerPieces;
+  const containerTypeStr =
+    order.containers?.type?.toLowerCase() === "bucket" ? "bucket" : "bottle";
+
   return (
-    <div className="flex justify-center items-center gap-2">
+    <div className="flex justify-center items-center gap-1">
+      {/* --- INFO ICON --- */}
+      <button
+        onClick={() => setIsInfoOpen(true)}
+        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+        title="View Order Details"
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+          />
+        </svg>
+      </button>
+
       {/* --- EDIT ICON --- */}
       <button
         onClick={() => setIsEditOpen(true)}
@@ -137,6 +185,166 @@ export default function OrderRowActions({
           />
         </svg>
       </button>
+
+      {/* ================= INFO MODAL ================= */}
+      {isInfoOpen && (
+        <div className={glassBackdrop} onClick={() => setIsInfoOpen(false)}>
+          <div className={glassModal} onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-white/50 bg-white/40 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-[var(--lub-dark)]">
+                Order Details
+              </h2>
+              <button
+                onClick={() => setIsInfoOpen(false)}
+                className="text-gray-500 hover:text-gray-800 text-2xl leading-none font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Header Info */}
+              <div className="flex justify-between items-start bg-white/50 p-4 rounded-xl border border-white/60 shadow-sm">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                    Order Number
+                  </p>
+                  <p className="text-sm font-black text-[#3F4A90] font-mono tracking-wider">
+                    {formattedOrderId}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                    Date & Time
+                  </p>
+                  <p className="text-sm font-bold text-gray-700">
+                    {formattedDate}
+                  </p>
+                </div>
+              </div>
+
+              {/* Core Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/40 p-4 rounded-xl border border-white/50">
+                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">
+                    Customer Name
+                  </p>
+                  <p className="font-bold text-gray-800">
+                    {order.customer_name}
+                  </p>
+                </div>
+
+                <div className="bg-white/40 p-4 rounded-xl border border-white/50">
+                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">
+                    Finished Product
+                  </p>
+                  <p className="font-bold text-gray-800">
+                    {order.finished_products?.product_name}
+                  </p>
+                  <p className="text-xs text-gray-500 font-medium">
+                    Grade: {order.finished_products?.grade_name}
+                  </p>
+                </div>
+
+                <div className="bg-white/40 p-4 rounded-xl border border-white/50">
+                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">
+                    Packaging
+                  </p>
+                  <p className="font-bold text-gray-800">
+                    {order.containers?.name}
+                  </p>
+                  <p className="text-xs text-gray-500 font-medium">
+                    {containerPieces} pcs / box
+                  </p>
+                </div>
+
+                <div className="bg-white/40 p-4 rounded-xl border border-white/50">
+                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">
+                    Sticker / Label
+                  </p>
+                  {order.sticker_id ? (
+                    <>
+                      <p className="font-bold text-gray-800 truncate">
+                        {order.materials?.name}
+                      </p>
+                      <p className="text-xs text-blue-500 font-medium">
+                        {order.sticker_quantity} pcs / {containerTypeStr}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-semibold text-gray-400">None</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Financials & Qty */}
+              <div className="bg-green-50/50 p-5 rounded-2xl border border-green-100 shadow-inner space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-bold text-gray-600">
+                    Total Quantity
+                  </span>
+                  <span className="font-bold text-gray-900">
+                    {order.boxes_quantity} Cartons{" "}
+                    <span className="text-gray-400 font-medium">
+                      ({totalPieces} PCS)
+                    </span>
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm border-b border-green-100 pb-3">
+                  <span className="font-bold text-gray-600">
+                    Rate per piece
+                  </span>
+                  <span className="font-bold text-gray-900">
+                    ₹
+                    {Number(order.rate_per_piece).toLocaleString("en-IN", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pt-1">
+                  <span className="font-extrabold text-gray-700 uppercase tracking-wide text-sm">
+                    Total Amount
+                  </span>
+                  <span
+                    className={`font-black text-lg ${Number(order.total_amount) < 0 ? "text-red-600" : "text-green-700"}`}
+                  >
+                    {Number(order.total_amount) < 0 ? "-" : ""}₹
+                    {Math.abs(Number(order.total_amount)).toLocaleString(
+                      "en-IN",
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-gray-700 uppercase tracking-wide text-sm">
+                    Est. Net Profit
+                  </span>
+                  <span
+                    className={`font-black text-lg ${Number(order.calculated_profit) < 0 ? "text-red-600" : "text-green-700"}`}
+                  >
+                    {Number(order.calculated_profit) < 0 ? "-" : ""}₹
+                    {Math.abs(Number(order.calculated_profit)).toLocaleString(
+                      "en-IN",
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200/50 bg-gray-50 flex shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsInfoOpen(false)}
+                className="w-full py-2.5 px-4 bg-white text-gray-700 font-bold rounded-xl shadow-sm border border-gray-200 hover:bg-gray-100 transition-all"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= EDIT MODAL ================= */}
       {isEditOpen && (

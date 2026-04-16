@@ -26,13 +26,14 @@ export default async function OrdersPage({
 
   const supabase = await createClient();
 
+  // 🔥 UPDATED QUERY: Fetching capacity and cap_quantity to calculate the breakdown!
   let query = supabase
     .from("orders")
     .select(
       `
       *,
       finished_products (product_name, grade_name, unit),
-      containers (name, pieces_per_box, type),
+      containers (name, pieces_per_box, type, capacity_per_piece, capacity_unit, cap_quantity),
       materials (name)
     `,
       { count: "exact" },
@@ -74,7 +75,6 @@ export default async function OrdersPage({
     )
     .order("name");
 
-  // 🔥 FETCH FULL MATERIALS TO EXTRACT STICKERS
   const { data: materialsData } = await supabase
     .from("materials")
     .select("id, name, cost_per_unit, stock, type");
@@ -101,7 +101,7 @@ export default async function OrdersPage({
               finishedProducts={finishedProducts || []}
               containers={containersList || []}
               materials={materials}
-              stickers={stickers} // 🔥 PASSED STICKERS HERE
+              stickers={stickers}
             />
           </div>
         </div>
@@ -145,19 +145,21 @@ export default async function OrdersPage({
             <tbody>
               {ordersData && ordersData.length > 0 ? (
                 ordersData.map((order) => {
+                  // 🔥 FIX: Safe Date Formatting prevents hydration crash!
                   const dateObj = new Date(order.created_at);
-                  const yyyy = dateObj.getFullYear();
-                  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
                   const dd = String(dateObj.getDate()).padStart(2, "0");
+                  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+                  const yyyy = dateObj.getFullYear();
+                  const displayDate = `${dd}/${mm}/${yyyy}`;
+
                   const paddedNum = String(order.order_number).padStart(4, "0");
                   const formattedOrderId = `ORD-${yyyy}${mm}${dd}-${paddedNum}`;
 
                   const isTotalNegative = Number(order.total_amount) < 0;
                   const isProfitNegative = Number(order.calculated_profit) < 0;
 
-                  // Determine if the container is a bucket or a bottle
                   const containerTypeStr =
-                    order.containers?.type?.toLowerCase() === "bucket"
+                    (order.containers?.type || "").toLowerCase() === "bucket"
                       ? "bucket"
                       : "bottle";
 
@@ -172,11 +174,7 @@ export default async function OrdersPage({
                         </div>
                       </td>
                       <td className="p-4 text-sm text-gray-600 font-medium">
-                        {dateObj.toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })}
+                        {displayDate}
                       </td>
                       <td className="p-4">
                         <div className="font-bold text-[var(--lub-dark)] truncate">
@@ -195,7 +193,6 @@ export default async function OrdersPage({
                         </div>
                       </td>
 
-                      {/* 🔥 STICKER DATA CELL */}
                       <td className="p-4">
                         {order.sticker_id ? (
                           <>
