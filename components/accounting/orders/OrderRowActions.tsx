@@ -170,44 +170,28 @@ export default function OrderRowActions({
                 />
               </div>
 
-              {/* 🔥 STICKER SELECTION AREA IN EDIT MODAL */}
-              <div className="flex gap-4 bg-white/40 p-4 border border-white/60 rounded-2xl shadow-sm">
-                <div className="flex-1">
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                    Sticker / Label Design
-                  </label>
-                  <select
-                    name="sticker_id"
-                    className={glassInput}
-                    value={selectedStickerId}
-                    onChange={(e) => setSelectedStickerId(e.target.value)}
-                  >
-                    <option value="">-- No Sticker Needed --</option>
-                    {stickers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.stock} in stock)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 🔥 HIDDEN STICKER QUANTITY (DEFAULT 1) */}
+              {/* 🔥 STICKER FIELD AS A STANDARD INPUT */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                  Sticker / Label Design
+                </label>
+                <select
+                  name="sticker_id"
+                  className={glassInput}
+                  value={selectedStickerId}
+                  onChange={(e) => setSelectedStickerId(e.target.value)}
+                >
+                  <option value="">-- No Sticker Needed --</option>
+                  {stickers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.stock} in stock)
+                    </option>
+                  ))}
+                </select>
+                {/* Hidden sticker quantity so backend receives it */}
                 {selectedStickerId && (
                   <input type="hidden" name="sticker_quantity" value="1" />
                 )}
-
-                {/* 🔥 COMMENTED OUT STICKER QUANTITY FIELD 
-                <div className="w-24 shrink-0">
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Qty / Pc</label>
-                  <input
-                    type="number"
-                    className={glassInput}
-                    min="1"
-                    value={1}
-                    disabled={true}
-                  />
-                </div>
-                */}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

@@ -8,7 +8,7 @@ export default function AddOrderModal({
   finishedProducts,
   containers,
   materials,
-  stickers, // 🔥 NEW PROP FOR STICKERS
+  stickers,
 }: {
   finishedProducts: {
     id: string;
@@ -50,7 +50,7 @@ export default function AddOrderModal({
   const [boxesQty, setBoxesQty] = useState<number | "">("");
   const [rate, setRate] = useState<number | "">("");
 
-  // 🔥 Sticker state (only ID needed now, quantity defaults to 1)
+  // Sticker state (only ID needed now, quantity defaults to 1)
   const [selectedStickerId, setSelectedStickerId] = useState("");
 
   const selectedFP = finishedProducts.find((fp) => fp.id === selectedProductId);
@@ -79,7 +79,7 @@ export default function AddOrderModal({
     const reqBoxes = Number(boxesQty);
     const reqCaps = totalPieces * (selectedContainer.cap_quantity || 0);
 
-    // 🔥 Hardcoded to 1 sticker per piece!
+    // Hardcoded to 1 sticker per piece!
     const reqStickers = selectedStickerId ? totalPieces * 1 : 0;
 
     const boxPrice =
@@ -265,44 +265,28 @@ export default function AddOrderModal({
                     </select>
                   </div>
 
-                  {/* 🔥 STICKER SELECTION AREA */}
-                  <div className="md:col-span-2 flex gap-4 bg-white p-4 border border-gray-100 rounded-2xl shadow-sm">
-                    <div className="flex-1">
-                      <label className={labelClass}>
-                        Sticker / Label Design
-                      </label>
-                      <select
-                        name="sticker_id"
-                        className={glassInput}
-                        value={selectedStickerId}
-                        onChange={(e) => setSelectedStickerId(e.target.value)}
-                      >
-                        <option value="">-- No Sticker Needed --</option>
-                        {stickers.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} ({s.stock} in stock)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* 🔥 HIDDEN STICKER QUANTITY (DEFAULT 1) */}
+                  {/* 🔥 STICKER FIELD (NOW A STANDARD FULL-WIDTH ROW) */}
+                  <div className="md:col-span-2">
+                    <label className={labelClass}>
+                      Sticker / Label Design
+                    </label>
+                    <select
+                      name="sticker_id"
+                      className={glassInput}
+                      value={selectedStickerId}
+                      onChange={(e) => setSelectedStickerId(e.target.value)}
+                    >
+                      <option value="">-- No Sticker Needed --</option>
+                      {stickers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.stock} in stock)
+                        </option>
+                      ))}
+                    </select>
+                    {/* Hidden quantity so backend receives it */}
                     {selectedStickerId && (
                       <input type="hidden" name="sticker_quantity" value="1" />
                     )}
-
-                    {/* 🔥 COMMENTED OUT STICKER QUANTITY FIELD
-                    <div className="w-24 shrink-0">
-                      <label className={labelClass}>Stickers/Pc</label>
-                      <input
-                        type="number"
-                        className={glassInput}
-                        min="1"
-                        value={1}
-                        disabled={true}
-                      />
-                    </div>
-                    */}
                   </div>
 
                   <div>
