@@ -486,7 +486,7 @@ export default function ContainerRowActions({
                             </select>
                           </div>
                           <div className="w-24 shrink-0">
-                            <label className={labelClass}>Qty Used</label>
+                            <label className={labelClass}>Qty/Bottle</label>
                             <input
                               className={`${glassInput} w-full`}
                               type="number"
