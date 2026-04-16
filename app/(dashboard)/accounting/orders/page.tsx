@@ -32,7 +32,7 @@ export default async function OrdersPage({
       `
       *,
       finished_products (product_name, grade_name, unit),
-      containers (name, pieces_per_box),
+      containers (name, pieces_per_box, type),
       materials (name)
     `,
       { count: "exact" },
@@ -70,7 +70,7 @@ export default async function OrdersPage({
   const { data: containersList } = await supabase
     .from("containers")
     .select(
-      "id, name, pieces_per_box, capacity_per_piece, capacity_unit, cost_per_piece, box_id, cap_id, cap_quantity",
+      "id, name, pieces_per_box, capacity_per_piece, capacity_unit, cost_per_piece, box_id, cap_id, cap_quantity, type",
     )
     .order("name");
 
@@ -122,7 +122,6 @@ export default async function OrdersPage({
                 <th className="w-[16%] text-left p-4 text-xs font-bold text-gray-500 uppercase border-b">
                   Product
                 </th>
-                {/* 🔥 NEW STICKER COLUMN */}
                 <th className="w-[12%] text-left p-4 text-xs font-bold text-gray-500 uppercase border-b">
                   Sticker
                 </th>
@@ -155,6 +154,12 @@ export default async function OrdersPage({
 
                   const isTotalNegative = Number(order.total_amount) < 0;
                   const isProfitNegative = Number(order.calculated_profit) < 0;
+
+                  // Determine if the container is a bucket or a bottle
+                  const containerTypeStr =
+                    order.containers?.type?.toLowerCase() === "bucket"
+                      ? "bucket"
+                      : "bottle";
 
                   return (
                     <tr
@@ -198,7 +203,7 @@ export default async function OrdersPage({
                               {order.materials?.name || "Unknown Sticker"}
                             </div>
                             <div className="text-xs text-blue-500 font-medium mt-0.5">
-                              {order.sticker_quantity} pcs / bottle
+                              {order.sticker_quantity} pcs / {containerTypeStr}
                             </div>
                           </>
                         ) : (
@@ -265,7 +270,6 @@ export default async function OrdersPage({
                       </td>
 
                       <td className="p-4 text-center">
-                        {/* 🔥 PASSED STICKERS TO EDIT ACTION */}
                         <OrderRowActions order={order} stickers={stickers} />
                       </td>
                     </tr>

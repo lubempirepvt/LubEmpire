@@ -136,6 +136,7 @@ export async function adjustBoxAction(formData: FormData) {
   let currentStock = Number(box.stock || 0);
   const isRemoving = adjustment_type === "Remove Quantity";
 
+  // 🔥 NEGATIVE STOCK PROTECTION
   if (isRemoving && quantity > currentStock) {
     throw new Error(
       `Cannot remove ${quantity}. Only ${currentStock} in stock.`,
@@ -163,8 +164,7 @@ export async function adjustBoxAction(formData: FormData) {
   revalidatePath("/materials/boxes");
 }
 
-// 🔥 NEW: Edit Existing Purchase (With Moving Average Recalculation)
-// 🔥 NEW: Edit Existing Purchase (Allows editing used stock, blocks negative inventory)
+// 🔥 Edit Existing Purchase (Allows editing used stock, blocks negative inventory)
 export async function editBoxPurchaseAction(formData: FormData) {
   const transaction_id = formData.get("transaction_id") as string;
   const new_quantity = Number(formData.get("quantity"));

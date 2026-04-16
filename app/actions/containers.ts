@@ -12,7 +12,7 @@ export async function addContainerAction(formData: FormData) {
   const creation_mode = formData.get("creation_mode") as string;
   let base_container_id = formData.get("base_container_id") as string | null;
 
-  // 🔥 FIX: Clean up potential bad data from frontend
+  // Clean up potential bad data from frontend
   if (
     base_container_id === "null" ||
     base_container_id === "undefined" ||
@@ -88,7 +88,7 @@ export async function editContainerAction(formData: FormData) {
   const creation_mode = formData.get("creation_mode") as string;
   let base_container_id = formData.get("base_container_id") as string | null;
 
-  // 🔥 FIX: Clean up potential bad data from frontend
+  // Clean up potential bad data from frontend
   if (
     base_container_id === "null" ||
     base_container_id === "undefined" ||
@@ -185,7 +185,7 @@ export async function purchaseContainerAction(formData: FormData) {
 
   if (fetchError || !container) throw new Error("Container not found");
 
-  // 🔥 SAFETY CHECK: Prevent purchasing stock directly into a variant!
+  // SAFETY CHECK: Prevent purchasing stock directly into a variant!
   if (container.base_container_id) {
     throw new Error(
       "You cannot add stock directly to a Variant! Please purchase the stock for its Base Container instead.",
@@ -242,7 +242,7 @@ export async function adjustContainerAction(formData: FormData) {
 
   if (fetchError || !container) throw new Error("Container not found");
 
-  // 🔥 SAFETY CHECK: Prevent adjusting stock directly into a variant!
+  // SAFETY CHECK: Prevent adjusting stock directly into a variant!
   if (container.base_container_id) {
     throw new Error(
       "You cannot adjust stock directly on a Variant! Please adjust the stock of its Base Container instead.",
@@ -252,6 +252,7 @@ export async function adjustContainerAction(formData: FormData) {
   let currentStock = Number(container.stock || 0);
   const isRemoving = adjustment_type === "Remove Quantity";
 
+  // NEGATIVE STOCK PROTECTION
   if (isRemoving && quantity > currentStock) {
     throw new Error(
       `Cannot remove ${quantity}. Only ${currentStock} empty containers left in stock.`,
@@ -278,7 +279,7 @@ export async function adjustContainerAction(formData: FormData) {
   revalidatePath("/materials/containers");
 }
 
-// 🔥 Edit Existing Purchase (Allows editing used stock, blocks negative inventory)
+// Edit Existing Purchase (Allows editing used stock, blocks negative inventory)
 export async function editContainerPurchaseAction(formData: FormData) {
   const transaction_id = formData.get("transaction_id") as string;
   const new_quantity = Number(formData.get("quantity"));

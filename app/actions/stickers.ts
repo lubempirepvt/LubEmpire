@@ -63,7 +63,7 @@ export async function purchaseStickerAction(formData: FormData) {
   // 1. Fetch current sticker to get existing stock AND average cost
   const { data: sticker, error: fetchError } = await supabase
     .from("materials")
-    .select("name, stock, cost_per_unit") // <-- ADDED cost_per_unit
+    .select("name, stock, cost_per_unit")
     .eq("id", material_id)
     .single();
 
@@ -102,7 +102,7 @@ export async function purchaseStickerAction(formData: FormData) {
     })
     .eq("id", material_id);
 
-  // 4. Expense Entry (Added Qty and Rate for consistency with editing!)
+  // 4. Expense Entry
   const { error: accError } = await supabase.from("accounting_entries").insert({
     entry_type: "Expense",
     amount: total_cost,
@@ -143,7 +143,7 @@ export async function adjustStickerAction(formData: FormData) {
   let currentStock = Number(sticker.stock || 0);
   const isRemoving = adjustment_type === "Remove Quantity";
 
-  // BACKEND SAFETY CHECK
+  // 🔥 BACKEND SAFETY CHECK
   if (isRemoving && quantity > currentStock) {
     throw new Error(
       `Cannot remove ${quantity}. Only ${currentStock} in stock.`,
@@ -155,7 +155,7 @@ export async function adjustStickerAction(formData: FormData) {
 
   const { error } = await supabase.from("material_transactions").insert({
     material_id,
-    transaction_type: db_transaction_type, // Using translated string
+    transaction_type: db_transaction_type,
     quantity: actualQuantity,
     rate: 0,
     reason,
@@ -172,7 +172,7 @@ export async function adjustStickerAction(formData: FormData) {
   revalidatePath("/materials/stickers");
 }
 
-// 🔥 NEW: Edit Existing Purchase (Allows editing used stock, blocks negative inventory)
+// 🔥 Edit Existing Purchase (Allows editing used stock, blocks negative inventory)
 export async function editStickerPurchaseAction(formData: FormData) {
   const transaction_id = formData.get("transaction_id") as string;
   const new_quantity = Number(formData.get("quantity"));

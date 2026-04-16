@@ -63,7 +63,7 @@ export async function purchaseCapAction(formData: FormData) {
   // 1. Fetch current cap to get existing stock AND average cost
   const { data: cap, error: fetchError } = await supabase
     .from("materials")
-    .select("name, stock, cost_per_unit") // <-- ADDED cost_per_unit
+    .select("name, stock, cost_per_unit")
     .eq("id", material_id)
     .single();
 
@@ -102,7 +102,7 @@ export async function purchaseCapAction(formData: FormData) {
     })
     .eq("id", material_id);
 
-  // 4. Expense Entry (Added Qty and Rate for consistency with editing!)
+  // 4. Expense Entry
   const { error: accError } = await supabase.from("accounting_entries").insert({
     entry_type: "Expense",
     amount: total_cost,
@@ -143,7 +143,7 @@ export async function adjustCapAction(formData: FormData) {
   let currentStock = Number(cap.stock || 0);
   const isRemoving = adjustment_type === "Remove Quantity";
 
-  // BACKEND SAFETY CHECK
+  // 🔥 BACKEND SAFETY CHECK: Prevent Negative Stock
   if (isRemoving && quantity > currentStock) {
     throw new Error(
       `Cannot remove ${quantity}. Only ${currentStock} in stock.`,
@@ -155,7 +155,7 @@ export async function adjustCapAction(formData: FormData) {
 
   const { error } = await supabase.from("material_transactions").insert({
     material_id,
-    transaction_type: db_transaction_type, // Using translated string
+    transaction_type: db_transaction_type,
     quantity: actualQuantity,
     rate: 0,
     reason,
@@ -172,8 +172,7 @@ export async function adjustCapAction(formData: FormData) {
   revalidatePath("/materials/caps");
 }
 
-// 🔥 NEW: Edit Existing Purchase (With Moving Average Recalculation)
-
+// 🔥 Edit Existing Purchase (Allows editing used stock, blocks negative inventory)
 export async function editCapPurchaseAction(formData: FormData) {
   const transaction_id = formData.get("transaction_id") as string;
   const new_quantity = Number(formData.get("quantity"));
@@ -222,13 +221,15 @@ export async function editCapPurchaseAction(formData: FormData) {
   // 🔥 SAFETY CHECK: Prevent the edit from driving inventory into the negative
   if (newStock < 0) {
     throw new Error(
-      `Cannot reduce quantity to ${new_quantity}. ${Math.abs(tempStock)} units of this purchase have already been consumed. Lowering it this much would result in negative inventory!`
+      `Cannot reduce quantity to ${new_quantity}. ${Math.abs(tempStock)} units of this purchase have already been consumed. Lowering it this much would result in negative inventory!`,
     );
   }
 
   // Calculate the new blended average cost!
   const newAvgCost =
-    newStock > 0 ? Math.max(0, (tempTotalValue + newPurchaseValue) / newStock) : 0;
+    newStock > 0
+      ? Math.max(0, (tempTotalValue + newPurchaseValue) / newStock)
+      : 0;
 
   // 5. Update Database: Materials Table
   await supabase

@@ -3,6 +3,27 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+// Helper function to safely convert capacities regardless of casing (Ml, ml, Gm, gm, Kg)
+function getConvertedVolume(
+  pieces: number,
+  capacityPerPiece: number,
+  capUnit: string,
+  fpUnit: string,
+) {
+  let volume = Number(capacityPerPiece || 0) * pieces;
+  const cUnit = (capUnit || "").toLowerCase();
+  const fUnit = (fpUnit || "").toLowerCase();
+
+  if (
+    (cUnit === "ml" && (fUnit === "ltr" || fUnit === "liter")) ||
+    ((cUnit === "gm" || cUnit === "grams" || cUnit === "gram") &&
+      fUnit === "kg")
+  ) {
+    volume /= 1000;
+  }
+  return volume;
+}
+
 export async function createOrderAction(formData: FormData) {
   const customer_name = formData.get("customer_name") as string;
   const finished_product_id = formData.get("finished_product_id") as string;
@@ -10,7 +31,6 @@ export async function createOrderAction(formData: FormData) {
   const boxes_quantity = Number(formData.get("boxes_quantity"));
   const rate_per_piece = Number(formData.get("rate_per_piece"));
 
-  // Catch the sticker details directly from the Order form
   const sticker_id = (formData.get("sticker_id") as string) || null;
   const sticker_quantity = Number(formData.get("sticker_quantity")) || 0;
 
@@ -34,16 +54,15 @@ export async function createOrderAction(formData: FormData) {
   const total_pieces = boxes_quantity * container.pieces_per_box;
   const total_amount = total_pieces * rate_per_piece;
 
-  let bulkVolumeToDeduct = Number(container.capacity_per_piece) * total_pieces;
-  if (container.capacity_unit === "ml" && fp.unit === "Ltr")
-    bulkVolumeToDeduct /= 1000;
-  if (container.capacity_unit === "gm" && fp.unit === "KG")
-    bulkVolumeToDeduct /= 1000;
+  const bulkVolumeToDeduct = getConvertedVolume(
+    total_pieces,
+    container.capacity_per_piece,
+    container.capacity_unit,
+    fp.unit,
+  );
 
   const reqBoxes = boxes_quantity;
   const reqCaps = total_pieces * (container.cap_quantity || 0);
-
-  // Calculate required stickers based on the new Order input
   const reqStickers = total_pieces * sticker_quantity;
 
   const actualInventoryContainerId =
@@ -65,11 +84,9 @@ export async function createOrderAction(formData: FormData) {
     };
   }
 
-  // Combine container materials and the new order sticker
   const materialIds = [container.box_id, container.cap_id, sticker_id].filter(
     Boolean,
   );
-
   const { data: materials } = await supabase
     .from("materials")
     .select("id, name, stock, cost_per_unit")
@@ -107,7 +124,6 @@ export async function createOrderAction(formData: FormData) {
     .from("finished_products")
     .update({ stock: Number(fp.stock) - bulkVolumeToDeduct })
     .eq("id", fp.id);
-
   await supabase
     .from("containers")
     .update({ stock: Number(targetContainer!.stock) - total_pieces })
@@ -141,7 +157,6 @@ export async function createOrderAction(formData: FormData) {
   if (sticker_id)
     await deductMaterial(sticker_id, reqStickers, stickerStock!.stock);
 
-  // Insert order with sticker info
   const { error: orderError } = await supabase.from("orders").insert({
     customer_name,
     finished_product_id,
@@ -179,7 +194,6 @@ export async function editOrderAction(formData: FormData) {
   const newBoxesQty = Number(formData.get("boxes_quantity"));
   const newRate = Number(formData.get("rate_per_piece"));
 
-  // Catch sticker updates
   const newStickerId = (formData.get("sticker_id") as string) || null;
   const newStickerQty = Number(formData.get("sticker_quantity")) || 0;
 
@@ -218,11 +232,71 @@ export async function editOrderAction(formData: FormData) {
       .eq("id", actualInventoryContainerId)
       .single();
 
-    // 1. REFUND OLD MATERIALS
     const oldPieces = order.boxes_quantity * container.pieces_per_box;
-    // We now look at the order for sticker quantity, NOT the container!
     const oldStickers = oldPieces * (order.sticker_quantity || 0);
     const oldCaps = oldPieces * (container.cap_quantity || 0);
+
+    const boxDelta = newBoxesQty - order.boxes_quantity;
+    const pieceDelta = boxDelta * container.pieces_per_box;
+    const capDelta = pieceDelta * (container.cap_quantity || 0);
+
+    const bulkVolumeDelta = getConvertedVolume(
+      pieceDelta,
+      container.capacity_per_piece,
+      container.capacity_unit,
+      fp.unit,
+    );
+
+    // Fetch all materials needed to check stocks
+    const materialIds = [
+      container.box_id,
+      container.cap_id,
+      newStickerId,
+    ].filter(Boolean);
+    const { data: materials } = await supabase
+      .from("materials")
+      .select("id, stock, cost_per_unit")
+      .in("id", materialIds);
+
+    const boxStock = materials?.find((m) => m.id === container.box_id);
+    const capStock = materials?.find((m) => m.id === container.cap_id);
+    const newStickerStock = materials?.find((m) => m.id === newStickerId);
+
+    // PRE-FLIGHT CHECKS
+    if (boxDelta > 0) {
+      if (Number(fp.stock) < bulkVolumeDelta)
+        throw new Error(
+          `Insufficient Oil! Need ${bulkVolumeDelta}${fp.unit} more.`,
+        );
+      if (Number(targetContainer!.stock) < pieceDelta)
+        throw new Error(
+          `Insufficient ${targetContainer!.name}! Need ${pieceDelta} more.`,
+        );
+      if (container.box_id && (!boxStock || boxStock.stock < boxDelta))
+        throw new Error("Insufficient Boxes!");
+      if (container.cap_id && (!capStock || capStock.stock < capDelta))
+        throw new Error("Insufficient Caps!");
+    }
+
+    const newTotalPieces = newBoxesQty * container.pieces_per_box;
+    const newTotalStickers = newTotalPieces * newStickerQty;
+
+    // Check sticker limits if changed or increased
+    if (newStickerId) {
+      if (order.sticker_id !== newStickerId) {
+        if (!newStickerStock || newStickerStock.stock < newTotalStickers)
+          throw new Error("Insufficient stock for the new Sticker selected!");
+      } else {
+        const stickerDelta = newTotalStickers - oldStickers;
+        if (
+          stickerDelta > 0 &&
+          (!newStickerStock || newStickerStock.stock < stickerDelta)
+        )
+          throw new Error(
+            "Insufficient stock for Stickers to increase the order!",
+          );
+      }
+    }
 
     const adjustMaterial = async (id: string, deltaQty: number) => {
       if (!id || deltaQty === 0) return;
@@ -246,17 +320,6 @@ export async function editOrderAction(formData: FormData) {
       }
     };
 
-    // Calculate Box and Cap deltas normally
-    const boxDelta = newBoxesQty - order.boxes_quantity;
-    const pieceDelta = boxDelta * container.pieces_per_box;
-    const capDelta = pieceDelta * (container.cap_quantity || 0);
-
-    let bulkVolumeDelta = Number(container.capacity_per_piece) * pieceDelta;
-    if (container.capacity_unit === "ml" && fp.unit === "Ltr")
-      bulkVolumeDelta /= 1000;
-    if (container.capacity_unit === "gm" && fp.unit === "KG")
-      bulkVolumeDelta /= 1000;
-
     if (boxDelta !== 0) {
       await supabase
         .from("finished_products")
@@ -277,39 +340,24 @@ export async function editOrderAction(formData: FormData) {
       if (container.cap_id) await adjustMaterial(container.cap_id, capDelta);
     }
 
-    // 2. HANDLE STICKER DELTAS (Since sticker_id might have changed entirely)
-    const newTotalPieces = newBoxesQty * container.pieces_per_box;
-    const newTotalStickers = newTotalPieces * newStickerQty;
-
+    // Handle Stickers safely
     if (order.sticker_id !== newStickerId) {
-      // Refund old sticker completely
       if (order.sticker_id)
-        await adjustMaterial(order.sticker_id, -oldStickers);
-      // Deduct new sticker completely
-      if (newStickerId) await adjustMaterial(newStickerId, newTotalStickers);
+        await adjustMaterial(order.sticker_id, -oldStickers); // Full refund old
+      if (newStickerId) await adjustMaterial(newStickerId, newTotalStickers); // Full deduct new
     } else if (order.sticker_id) {
-      // Just adjust the delta if it's the same sticker
       const stickerDelta = newTotalStickers - oldStickers;
-      await adjustMaterial(order.sticker_id, stickerDelta);
+      await adjustMaterial(order.sticker_id, stickerDelta); // Just adjust difference
     }
 
     // 3. RECALCULATE PROFIT
     const newTotalAmount = newTotalPieces * newRate;
-
-    let newBulkVolume =
-      Number(container.capacity_per_piece || 0) * newTotalPieces;
-    if (container.capacity_unit === "ml" && fp.unit === "Ltr")
-      newBulkVolume /= 1000;
-    if (container.capacity_unit === "gm" && fp.unit === "KG")
-      newBulkVolume /= 1000;
-
-    const { data: materials } = await supabase
-      .from("materials")
-      .select("id, cost_per_unit")
-      .in(
-        "id",
-        [container.box_id, container.cap_id, newStickerId].filter(Boolean),
-      );
+    const newBulkVolume = getConvertedVolume(
+      newTotalPieces,
+      container.capacity_per_piece,
+      container.capacity_unit,
+      fp.unit,
+    );
 
     const boxCost = container.box_id
       ? newBoxesQty *
@@ -409,16 +457,15 @@ export async function deleteOrderAction(formData: FormData) {
         .eq("id", actualInventoryContainerId)
         .single();
 
-      let bulkVolumeToRefund =
-        Number(container.capacity_per_piece) * total_pieces;
-      if (container.capacity_unit === "ml" && fp.unit === "Ltr")
-        bulkVolumeToRefund /= 1000;
-      if (container.capacity_unit === "gm" && fp.unit === "KG")
-        bulkVolumeToRefund /= 1000;
+      const bulkVolumeToRefund = getConvertedVolume(
+        total_pieces,
+        container.capacity_per_piece,
+        container.capacity_unit,
+        fp.unit,
+      );
 
       const reqBoxes = order.boxes_quantity;
       const reqCaps = total_pieces * (container.cap_quantity || 0);
-      // 🔥 We now look at the order for sticker quantity, NOT the container!
       const reqStickers = total_pieces * (order.sticker_quantity || 0);
 
       await supabase

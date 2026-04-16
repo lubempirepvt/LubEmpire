@@ -10,13 +10,14 @@ export async function addRawMaterial(formData: FormData) {
 
   const supabase = await createClient();
 
-  await supabase.from("materials").insert({
+  const { error } = await supabase.from("materials").insert({
     name,
     type: "Raw Material",
     unit,
     stock: 0, // Starts at 0
   });
 
+  if (error) throw new Error(error.message);
   revalidatePath("/materials/raw-materials");
 }
 
@@ -48,7 +49,7 @@ export async function editRawMaterialAction(formData: FormData) {
   const unit = formData.get("unit") as string;
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("materials")
     .update({
       name,
@@ -56,6 +57,7 @@ export async function editRawMaterialAction(formData: FormData) {
     })
     .eq("id", id);
 
+  if (error) throw new Error(error.message);
   revalidatePath("/materials/raw-materials");
 }
 
@@ -64,7 +66,7 @@ export async function purchaseRawMaterialAction(formData: FormData) {
   const material_id = formData.get("material_id") as string;
   const quantity = Number(formData.get("quantity"));
   const rate = Number(formData.get("rate")); // This is the new purchase price
-  const supplier = formData.get("supplier") as string;
+  const supplier = (formData.get("supplier") as string) || "Unknown Supplier";
   const total_cost = quantity * rate;
 
   const supabase = await createClient();
@@ -153,7 +155,7 @@ export async function adjustRawMaterialAction(formData: FormData) {
   let currentStock = Number(material.stock || 0);
   const isRemoving = adjustment_type === "Remove Quantity";
 
-  // BACKEND SAFETY CHECK
+  // 🔥 BACKEND SAFETY CHECK
   if (isRemoving && quantity > currentStock) {
     throw new Error(
       `Cannot remove ${quantity}. Only ${currentStock} in stock.`,
