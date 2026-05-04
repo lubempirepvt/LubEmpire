@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrderAction } from "@/app/actions/orders";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export default function AddOrderModal({
   finishedProducts,
@@ -121,14 +122,59 @@ export default function AddOrderModal({
       maximumFractionDigits: 2,
     });
 
+  const productOptions = useMemo(
+    () =>
+      finishedProducts.map((fp) => ({
+        value: fp.id,
+        label: `${fp.product_name} (${fp.grade_name}) - ${parseFloat(Number(fp.stock).toFixed())} ${fp.unit} available`,
+        keywords: `${fp.product_name} ${fp.grade_name} ${fp.unit}`,
+      })),
+    [finishedProducts],
+  );
+
+  const containerOptions = useMemo(
+    () =>
+      containers.map((c) => {
+        const cap =
+          c.capacity_per_piece != null
+            ? `Capacity : ${c.capacity_per_piece} ${c.capacity_unit ?? ""}`
+            : "";
+        return {
+          value: c.id,
+          label: [c.name.trim(), cap ? `(${cap})` : ""].filter(Boolean).join(" "),
+          keywords: `${c.name} ${c.capacity_unit ?? ""} ${c.capacity_per_piece ?? ""}`,
+        };
+      }),
+    [containers],
+  );
+
+  const stickerOptions = useMemo(
+    () =>
+      stickers.map((s) => ({
+        value: s.id,
+        label: `${s.name} (${s.stock} in stock)`,
+        keywords: s.name,
+      })),
+    [stickers],
+  );
+
   const blockInvalidChars = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault();
   };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIsSubmitting(true);
     setErrorMsg("");
+    if (!selectedProductId) {
+      setErrorMsg("Please select a finished product.");
+      return;
+    }
+    if (!selectedContainerId) {
+      setErrorMsg("Please select packaging.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     const formData = new FormData(e.currentTarget);
     try {
@@ -241,70 +287,44 @@ export default function AddOrderModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="md:col-span-2">
                     <label className={labelClass}>Finished Product (Oil)</label>
-                    <select
+                    <SearchableSelect
                       name="finished_product_id"
-                      required
-                      className={glassInput}
                       value={selectedProductId}
-                      onChange={(e) => setSelectedProductId(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        -- Select Product --
-                      </option>
-                      {finishedProducts.map((fp) => (
-                        <option key={fp.id} value={fp.id}>
-                          {fp.product_name} ({fp.grade_name}) -{" "}
-                          {parseFloat(Number(fp.stock).toFixed())} {fp.unit}{" "}
-                          available
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setSelectedProductId}
+                      options={productOptions}
+                      placeholder="-- Select product (search) --"
+                      searchPlaceholder="Search by name, grade, unit…"
+                    />
                   </div>
 
                   <div className="md:col-span-2">
                     <label className={labelClass}>
                       Packaging (Bottle / Bucket)
                     </label>
-                    <select
+                    <SearchableSelect
                       name="container_id"
-                      required
-                      className={glassInput}
                       value={selectedContainerId}
-                      onChange={(e) => setSelectedContainerId(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        -- Select Packaging --
-                      </option>
-                      {containers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}{" "}
-                          {c.capacity_per_piece
-                            ? `(Capacity : ${c.capacity_per_piece} ${c.capacity_unit})`
-                            : ""}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setSelectedContainerId}
+                      options={containerOptions}
+                      placeholder="-- Select packaging (search) --"
+                      searchPlaceholder="Search by bottle name, capacity…"
+                    />
                   </div>
 
-                  {/* 🔥 STICKER FIELD (NOW A STANDARD FULL-WIDTH ROW) */}
                   <div className="md:col-span-2">
                     <label className={labelClass}>
                       Sticker / Label Design
                     </label>
-                    <select
+                    <SearchableSelect
                       name="sticker_id"
-                      className={glassInput}
                       value={selectedStickerId}
-                      onChange={(e) => setSelectedStickerId(e.target.value)}
-                    >
-                      <option value="">-- No Sticker Needed --</option>
-                      {stickers.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.stock} in stock)
-                        </option>
-                      ))}
-                    </select>
-                    {/* Hidden quantity so backend receives it */}
+                      onChange={setSelectedStickerId}
+                      options={stickerOptions}
+                      placeholder="-- No sticker needed (search if adding) --"
+                      searchPlaceholder="Search sticker name…"
+                      optional
+                      emptyOptionLabel="-- No Sticker Needed --"
+                    />
                     {selectedStickerId && (
                       <input type="hidden" name="sticker_quantity" value="1" />
                     )}
