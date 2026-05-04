@@ -63,42 +63,63 @@ export default function AddOrderModal({
   const totalPieces = (Number(boxesQty) || 0) * piecesPerBox;
   const finalAmount = totalPieces * (Number(rate) || 0);
 
+  let bulkVolume = 0;
+  let totalOilCost = 0;
+  let totalBottleCost = 0;
+  let boxCost = 0;
+  let capCost = 0;
+  let stickerCost = 0;
+  let reqBoxes = 0;
+  let reqCaps = 0;
+  let reqStickers = 0;
+  let oilCpu = 0;
+  let bottleCpu = 0;
+  let boxPrice = 0;
+  let capPrice = 0;
+  let stickerPrice = 0;
+
   let totalCost = 0;
   if (selectedFP && selectedContainer && boxesQty) {
-    let bulkVolume =
+    bulkVolume =
       Number(selectedContainer.capacity_per_piece || 0) * totalPieces;
     if (selectedContainer.capacity_unit === "ml" && selectedFP.unit === "Ltr")
       bulkVolume /= 1000;
     if (selectedContainer.capacity_unit === "gm" && selectedFP.unit === "KG")
       bulkVolume /= 1000;
 
-    const totalOilCost = bulkVolume * (selectedFP.cost_per_unit || 0);
-    const totalBottleCost =
-      totalPieces * (selectedContainer.cost_per_piece || 0);
+    oilCpu = selectedFP.cost_per_unit || 0;
+    bottleCpu = selectedContainer.cost_per_piece || 0;
+    totalOilCost = bulkVolume * oilCpu;
+    totalBottleCost = totalPieces * bottleCpu;
 
-    const reqBoxes = Number(boxesQty);
-    const reqCaps = totalPieces * (selectedContainer.cap_quantity || 0);
+    reqBoxes = Number(boxesQty);
+    reqCaps = totalPieces * (selectedContainer.cap_quantity || 0);
+    // Hardcoded to 1 sticker per piece when a sticker is selected
+    reqStickers = selectedStickerId ? totalPieces * 1 : 0;
 
-    // Hardcoded to 1 sticker per piece!
-    const reqStickers = selectedStickerId ? totalPieces * 1 : 0;
-
-    const boxPrice =
+    boxPrice =
       materials?.find((m) => m.id === selectedContainer.box_id)
         ?.cost_per_unit || 0;
-    const capPrice =
+    capPrice =
       materials?.find((m) => m.id === selectedContainer.cap_id)
         ?.cost_per_unit || 0;
-    const stickerPrice = selectedSticker?.cost_per_unit || 0;
+    stickerPrice = selectedSticker?.cost_per_unit || 0;
 
-    const boxCost = reqBoxes * boxPrice;
-    const capCost = reqCaps * capPrice;
-    const stickerCost = reqStickers * stickerPrice;
+    boxCost = reqBoxes * boxPrice;
+    capCost = reqCaps * capPrice;
+    stickerCost = reqStickers * stickerPrice;
 
     totalCost =
       totalOilCost + totalBottleCost + boxCost + stickerCost + capCost;
   }
 
   const estimatedProfit = finalAmount - totalCost;
+
+  const formatInr = (n: number) =>
+    n.toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   const blockInvalidChars = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault();
@@ -331,32 +352,139 @@ export default function AddOrderModal({
                 selectedContainerId &&
                 boxesQty &&
                 rate ? (
-                  <div className="mt-4 p-5 bg-green-50 border border-green-200 rounded-2xl flex flex-col gap-3 shadow-inner">
-                    <div className="flex justify-between items-center border-b border-green-200/60 pb-3">
-                      <span className="font-extrabold text-green-800 text-sm uppercase tracking-wide">
-                        Total Sale Amount
-                      </span>
-                      <span className="font-black text-xl text-green-900">
-                        ₹
-                        {finalAmount.toLocaleString("en-IN", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
+                  <div className="mt-4 p-5 bg-green-50 border border-green-200 rounded-2xl flex flex-col gap-4 shadow-inner text-sm">
+                    <div>
+                      <p className="text-[11px] font-extrabold text-green-800 uppercase tracking-wide mb-2">
+                        Quantity & revenue
+                      </p>
+                      <div className="space-y-1.5 text-green-900/90">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-gray-600 font-medium">
+                            Total pieces
+                          </span>
+                          <span className="font-semibold tabular-nums text-right">
+                            {totalPieces.toLocaleString("en-IN")}{" "}
+                            <span className="text-gray-500 font-normal">
+                              ({Number(boxesQty)} box
+                              {Number(boxesQty) !== 1 ? "es" : ""} ×{" "}
+                              {piecesPerBox} pcs)
+                            </span>
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-gray-600 font-medium">
+                            Rate per piece
+                          </span>
+                          <span className="font-semibold tabular-nums">
+                            ₹{formatInr(Number(rate) || 0)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center pt-1">
-                      <span className="font-extrabold text-green-900 text-sm uppercase tracking-wide">
-                        Estimated Net Profit
-                      </span>
-                      <span
-                        className={`font-black text-2xl tracking-tight ${estimatedProfit >= 0 ? "text-green-700" : "text-red-600"}`}
-                      >
-                        {estimatedProfit < 0 ? "- ₹" : "₹"}
-                        {Math.abs(estimatedProfit).toLocaleString("en-IN", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
+
+                    <div className="border-t border-green-200/70 pt-3">
+                      <p className="text-[11px] font-extrabold text-green-800 uppercase tracking-wide mb-2">
+                        Cost breakdown (COGS)
+                      </p>
+                      <div className="space-y-2 text-green-900/90">
+                        <div className="flex justify-between gap-3 items-start">
+                          <span className="text-gray-600 font-medium shrink min-w-0">
+                            Oil (bulk)
+                            <span className="block text-[11px] font-normal text-gray-500 normal-case">
+                              {bulkVolume.toLocaleString("en-IN", {
+                                maximumFractionDigits: 4,
+                              })}{" "}
+                              {selectedFP?.unit}
+                              {" × "}₹{formatInr(oilCpu)} / {selectedFP?.unit}
+                            </span>
+                          </span>
+                          <span className="font-semibold tabular-nums shrink-0">
+                            ₹{formatInr(totalOilCost)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3 items-start">
+                          <span className="text-gray-600 font-medium shrink min-w-0">
+                            Empty packaging
+                            <span className="block text-[11px] font-normal text-gray-500 normal-case">
+                              {totalPieces.toLocaleString("en-IN")} pcs × ₹
+                              {formatInr(bottleCpu)} / pc
+                            </span>
+                          </span>
+                          <span className="font-semibold tabular-nums shrink-0">
+                            ₹{formatInr(totalBottleCost)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3 items-start">
+                          <span className="text-gray-600 font-medium shrink min-w-0">
+                            Cartons / boxes
+                            <span className="block text-[11px] font-normal text-gray-500 normal-case">
+                              {selectedContainer?.box_id
+                                ? `${reqBoxes} × ₹${formatInr(boxPrice)}`
+                                : "Not linked to a box material"}
+                            </span>
+                          </span>
+                          <span className="font-semibold tabular-nums shrink-0">
+                            ₹{formatInr(boxCost)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3 items-start">
+                          <span className="text-gray-600 font-medium shrink min-w-0">
+                            Caps
+                            <span className="block text-[11px] font-normal text-gray-500 normal-case">
+                              {selectedContainer?.cap_id
+                                ? `${reqCaps.toLocaleString("en-IN")} × ₹${formatInr(capPrice)}`
+                                : "Not linked to a cap material"}
+                            </span>
+                          </span>
+                          <span className="font-semibold tabular-nums shrink-0">
+                            ₹{formatInr(capCost)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3 items-start">
+                          <span className="text-gray-600 font-medium shrink min-w-0">
+                            Stickers
+                            <span className="block text-[11px] font-normal text-gray-500 normal-case">
+                              {selectedStickerId
+                                ? `${reqStickers.toLocaleString("en-IN")} × ₹${formatInr(stickerPrice)} (1 / pc)`
+                                : "None selected"}
+                            </span>
+                          </span>
+                          <span className="font-semibold tabular-nums shrink-0">
+                            ₹{formatInr(stickerCost)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3 pt-2 border-t border-green-200/60 font-extrabold text-green-900">
+                          <span>Total COGS</span>
+                          <span className="tabular-nums">₹{formatInr(totalCost)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-green-200/60 pt-3 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-green-800 text-sm uppercase tracking-wide">
+                          Total sale amount
+                        </span>
+                        <span className="font-black text-xl text-green-900 tabular-nums">
+                          ₹{formatInr(finalAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-green-900 text-sm uppercase tracking-wide">
+                          Estimated net profit
+                        </span>
+                        <span
+                          className={`font-black text-2xl tracking-tight tabular-nums ${estimatedProfit >= 0 ? "text-green-700" : "text-red-600"}`}
+                        >
+                          {estimatedProfit < 0 ? "- ₹" : "₹"}
+                          {formatInr(Math.abs(estimatedProfit))}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 leading-snug">
+                        Profit = sale amount − COGS (oil + packaging + boxes +
+                        caps + stickers), using current cost rates in master
+                        data.
+                      </p>
                     </div>
                   </div>
                 ) : null}
